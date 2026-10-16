@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>HYPE/USDC:USDC - Pro Liquidation Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #080b11;
+      --bg-card: rgba(14, 20, 34, 0.75);
+      --bg-card-hover: rgba(22, 30, 48, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-green: #10b981;
+      --accent-green-bg: rgba(16, 185, 129, 0.12);
+      --accent-red: #ef4444;
+      --accent-red-bg: rgba(239, 68, 68, 0.12);
+      --accent-amber: #f59e0b;
+      --accent-amber-bg: rgba(245, 158, 11, 0.12);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      padding: 1.25rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Header Nav */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.5rem;
+      backdrop-filter: blur(16px);
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.65rem;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--accent-green);
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .ticker-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-btn {
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .nav-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+    }
+
+    .nav-btn.active {
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+      border-color: var(--border-accent);
+    }
+
+    /* Main Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.65rem;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .card-metric-huge {
+      font-size: 2.1rem;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .metric-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Visual Skew Bar */
+    .skew-bar-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-top: 0.25rem;
+    }
+
+    .skew-bar-track {
+      display: flex;
+      height: 12px;
+      border-radius: 9999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .skew-fill-long {
+      background: linear-gradient(90deg, #dc2626, #ef4444);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .skew-fill-short {
+      background: linear-gradient(90deg, #10b981, #059669);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .skew-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* Simulator Panel */
+    .simulator-panel {
+      grid-column: 1 / -1;
+      background: linear-gradient(180deg, rgba(14, 20, 34, 0.95), rgba(10, 15, 26, 0.95));
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    .target-price-display {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .pct-badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .pct-up {
+      background: var(--accent-green-bg);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .pct-down {
+      background: var(--accent-red-bg);
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 10px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 12px var(--accent-cyan);
+      border: 2px solid #ffffff;
+      transition: transform 0.1s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .quick-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .preset-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Shock Results Box */
+    .shock-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+    }
+
+    .shock-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .shock-item-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+    }
+
+    .shock-item-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 0.25rem 0.65rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      width: fit-content;
+    }
+
+    .risk-low { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+    .risk-mod { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+    .risk-high { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .risk-extreme { background: #dc2626; color: #ffffff; animation: pulse 1s infinite; }
+
+    /* Canvas Chart Container */
+    .chart-container {
+      grid-column: 1 / -1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    #depthCanvas {
+      width: 100%;
+      height: 340px;
+      display: block;
+      border-radius: var(--radius-sm);
+      background: #06090e;
+    }
+
+    /* Table Container */
+    .tables-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 1.25rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .val-green { color: var(--accent-green); font-weight: 600; }
+    .val-red { color: var(--accent-red); font-weight: 600; }
+
+    footer {
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      padding: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <div class="brand">
+      <span class="badge-live"><span class="pulse-dot"></span> LIVE ENGINE</span>
+      <div>
+        <h1 class="ticker-title">HYPE/USDC:USDC</h1>
+        <p class="metric-sub">HYPERLIQUID PERPETUAL &bull; SPOT: <span class="mono" style="color:var(--accent-cyan);font-weight:700;">$79.0780</span> &bull; TOTAL OI: <span class="mono">$1,574.9M</span></p>
+      </div>
+    </div>
+    <nav class="nav-links">
+      <a href="/terminal" class="nav-btn active">⚡ Terminal Pro</a>
+      <a href="/hype_liquidation_map.html" class="nav-btn">📊 Full 2D Heatmap</a>
+      <a href="/liquidation_profile.csv" download class="nav-btn">📥 CSV Export</a>
+    </nav>
+  </header>
+
+  <!-- Key Metrics Row -->
+  <div class="dashboard-grid">
+    <!-- Card 1: Net Liquidation Skew -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Net Liquidation Skew (&Delta; Liq Index)</span>
+        <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">&plusmn;10% of Spot</span>
+      </div>
+      <div class="card-metric-huge mono" style="color:var(--accent-red);">
+        -57.2%
+      </div>
+      <p class="metric-sub">
+        Downside Flush Asymmetry (More Longs At Risk)
+      </p>
+      <div class="skew-bar-wrapper">
+        <div class="skew-bar-track">
+          <div class="skew-fill-long" style="width: 78.6%;"></div>
+          <div class="skew-fill-short" style="width: 21.4%;"></div>
+        </div>
+        <div class="skew-labels mono">
+          <span style="color:var(--accent-red)">Long Liq Pool: $464.4M</span>
+          <span style="color:var(--accent-green)">Short Liq Pool: $126.4M</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Magnetic Gravity Zones -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Magnetic Liquidity Gravity</span>
+        <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">89/100</span>
+      </div>
+      <div class="card-metric-huge mono" style="color:var(--accent-cyan);">
+        89<span style="font-size:1.1rem;color:var(--text-dim);"> / 100</span>
+      </div>
+      <p class="metric-sub">
+        Pull Bias: <strong style="color:var(--accent-red);">
+          Downside Gravity Pull
+        </strong>
+      </p>
+      <div style="display:flex;flex-direction:column;gap:0.35rem;font-size:0.82rem;margin-top:0.4rem;" class="mono">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted)">Nearest Long Cluster:</span>
+          <span style="color:var(--accent-red);font-weight:600;">$78.04 ($1.0M, -1.3%)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted)">Nearest Short Cluster:</span>
+          <span style="color:var(--accent-green);font-weight:600;">$82.49 ($2.6M, +4.3%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Model Health & Parameters -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Model Specifications</span>
+        <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">Hyperliquid Perp</span>
+      </div>
+      <div class="card-metric-huge mono" style="color:var(--text-main);">
+        23,003 <span style="font-size:1.1rem;color:var(--text-dim);font-weight:400;">Surviving</span>
+      </div>
+      <p class="metric-sub">79.9% of 28,800 modeled positions unliquidated</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.78rem;margin-top:0.4rem;" class="mono">
+        <div style="background:rgba(255,255,255,0.03);padding:0.4rem 0.6rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">DECAY HALF-LIFE</div>
+          <div style="color:var(--text-main);font-weight:600;">168 Hours (7d)</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);padding:0.4rem 0.6rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">MAX LEVERAGE</div>
+          <div style="color:var(--text-main);font-weight:600;">10x (Tier 2-10x)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Liquidation Shock Simulator -->
+  <section class="simulator-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+      <div>
+        <h2 style="font-size:1.25rem;font-weight:700;display:flex;align-items:center;gap:0.5rem;">
+          🎯 Interactive Liquidation Shock Simulator
+        </h2>
+        <p class="metric-sub">Drag price to simulate cascade liquidations and wipeout volumes across leverage tiers</p>
+      </div>
+      <div class="quick-presets">
+        <span style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;font-weight:600;margin-right:0.25rem;">PRESETS:</span>
+        <button class="preset-btn" onclick="setPreset(-0.15)">-15% Dump</button>
+        <button class="preset-btn" onclick="setPreset(-0.08)">-8% Flush</button>
+        <button class="preset-btn" onclick="setPreset(0.00)">Spot ($80.99)</button>
+        <button class="preset-btn" onclick="setPreset(0.08)">+8% Pump</button>
+        <button class="preset-btn" onclick="setPreset(0.15)">+15% Squeeze</button>
+        <button class="preset-btn" onclick="setPreset(0.25)">+25% Mega Squeeze</button>
+      </div>
+    </div>
+
+    <!-- Slider Control -->
+    <div class="slider-container">
+      <div class="slider-labels">
+        <span class="mono" style="color:var(--accent-red)">MIN: $56.84 (-30%)</span>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <span style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">SIMULATED TARGET:</span>
+          <span id="targetPriceDisplay" class="target-price-display mono">$79.08</span>
+          <span id="pctBadge" class="pct-badge pct-up mono">0.0%</span>
+        </div>
+        <span class="mono" style="color:var(--accent-green)">MAX: $105.13 (+30%)</span>
+      </div>
+      <input type="range" id="priceSlider" min="56.84" max="105.13" step="0.10" value="79.08">
+    </div>
+
+    <!-- Shock Results Metrics -->
+    <div class="shock-results">
+      <div class="shock-item">
+        <span class="shock-item-label">Estimated Liquidated USD</span>
+        <div id="wipedUsdDisplay" class="shock-item-val mono" style="color:var(--accent-cyan);">$0.0M</div>
+        <span id="sideDisplay" class="metric-sub">At current spot price</span>
+      </div>
+
+      <div class="shock-item">
+        <span class="shock-item-label">Cascade Severity Risk</span>
+        <div style="margin-top:0.25rem;">
+          <span id="riskBadge" class="risk-badge risk-low">NEUTRAL (AT SPOT)</span>
+        </div>
+        <span id="riskDescription" class="metric-sub" style="margin-top:0.25rem;">No immediate cascade threshold</span>
+      </div>
+
+      <div class="shock-item">
+        <span class="shock-item-label">10x Tier Liquidations</span>
+        <div id="tier10Display" class="shock-item-val mono" style="color:var(--text-main);font-size:1.25rem;">$0.0M</div>
+        <span class="metric-sub">Highest risk leverage bracket</span>
+      </div>
+
+      <div class="shock-item">
+        <span class="shock-item-label">5x / 3x / 2x Tiers Wiped</span>
+        <div id="tierOtherDisplay" class="shock-item-val mono" style="color:var(--text-main);font-size:1.25rem;">$0.0M</div>
+        <span class="metric-sub">Medium & conservative collateral</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Depth & Cumulative Liquidation Canvas -->
+  <section class="chart-container">
+    <div class="card-header">
+      <span class="card-title">Cumulative Liquidation Curves & High-Density Zones</span>
+      <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">Red = Long Liq Below Spot &bull; Green = Short Liq Above Spot</span>
+    </div>
+    <canvas id="depthCanvas" width="1200" height="340"></canvas>
+  </section>
+
+  <!-- Top Liquidation Clusters Breakdown -->
+  <section class="tables-grid">
+    <!-- Long Clusters Table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" style="color:var(--accent-red);">🔻 Top Long Liquidation Clusters (Below Spot)</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Liq Price</th>
+            <th>Volume ($)</th>
+            <th>Cumulative</th>
+            <th>Distance</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody class="mono">
+          <tr>
+            <td style="color:var(--accent-red);font-weight:700;">$75.96</td>
+            <td>$33.29M</td>
+            <td>$165.2M</td>
+            <td>-3.94%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-red);font-weight:700;">$68.25</td>
+            <td>$33.06M</td>
+            <td>$618.6M</td>
+            <td>-13.69%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-red);font-weight:700;">$77.15</td>
+            <td>$30.38M</td>
+            <td>$54.4M</td>
+            <td>-2.44%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-red);font-weight:700;">$76.85</td>
+            <td>$29.68M</td>
+            <td>$84.0M</td>
+            <td>-2.81%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-red);font-weight:700;">$75.67</td>
+            <td>$29.29M</td>
+            <td>$194.5M</td>
+            <td>-4.31%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Short Clusters Table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" style="color:var(--accent-green);">🔺 Top Short Liquidation Clusters (Above Spot)</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Liq Price</th>
+            <th>Volume ($)</th>
+            <th>Cumulative</th>
+            <th>Distance</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody class="mono">
+          <tr>
+            <td style="color:var(--accent-green);font-weight:700;">$92.57</td>
+            <td>$21.31M</td>
+            <td>$337.0M</td>
+            <td>+17.06%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-green);font-weight:700;">$92.27</td>
+            <td>$18.73M</td>
+            <td>$315.6M</td>
+            <td>+16.69%</td>
+            <td><span class="risk-badge risk-mod">MOD</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-green);font-weight:700;">$97.32</td>
+            <td>$18.60M</td>
+            <td>$542.2M</td>
+            <td>+23.06%</td>
+            <td><span class="risk-badge risk-mod">MOD</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-green);font-weight:700;">$101.47</td>
+            <td>$18.48M</td>
+            <td>$759.8M</td>
+            <td>+28.31%</td>
+            <td><span class="risk-badge risk-mod">MOD</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-green);font-weight:700;">$98.20</td>
+            <td>$18.30M</td>
+            <td>$592.6M</td>
+            <td>+24.19%</td>
+            <td><span class="risk-badge risk-mod">MOD</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>Hyperliquid HYPE/USDC Perpetual Deterministic Liquidation Model &bull; Live Port: 41345</p>
+  </footer>
+
+  <script>
+    // Embedded Liquidation Data
+    const SPOT = 79.078;
+    const BINS = [{"price": 55.50287125, "long_usd": 8204737.310873763, "short_usd": 0.0, "cum_long": 1251008688.5654302, "cum_short": 0.0}, {"price": 55.79941375, "long_usd": 20026478.17615421, "short_usd": 0.0, "cum_long": 1242803951.2545564, "cum_short": 0.0}, {"price": 56.09595625, "long_usd": 21335829.37993588, "short_usd": 0.0, "cum_long": 1222777473.0784023, "cum_short": 0.0}, {"price": 56.39249875, "long_usd": 20904656.959577072, "short_usd": 0.0, "cum_long": 1201441643.6984663, "cum_short": 0.0}, {"price": 56.68904125, "long_usd": 20157414.656240977, "short_usd": 0.0, "cum_long": 1180536986.7388892, "cum_short": 0.0}, {"price": 56.98558375, "long_usd": 22414287.035336178, "short_usd": 0.0, "cum_long": 1160379572.0826485, "cum_short": 0.0}, {"price": 57.28212625, "long_usd": 24896667.85589928, "short_usd": 0.0, "cum_long": 1137965285.047312, "cum_short": 0.0}, {"price": 57.57866875, "long_usd": 11711122.704154331, "short_usd": 0.0, "cum_long": 1113068617.1914127, "cum_short": 0.0}, {"price": 57.87521125, "long_usd": 10187684.716201814, "short_usd": 0.0, "cum_long": 1101357494.4872584, "cum_short": 0.0}, {"price": 58.17175375, "long_usd": 8429292.261075396, "short_usd": 0.0, "cum_long": 1091169809.771057, "cum_short": 0.0}, {"price": 58.46829625, "long_usd": 6585573.34169219, "short_usd": 0.0, "cum_long": 1082740517.5099812, "cum_short": 0.0}, {"price": 58.76483875, "long_usd": 7110090.791826072, "short_usd": 0.0, "cum_long": 1076154944.168289, "cum_short": 0.0}, {"price": 59.06138125, "long_usd": 10287359.051669195, "short_usd": 0.0, "cum_long": 1069044853.3764628, "cum_short": 0.0}, {"price": 59.35792375, "long_usd": 8433147.532339307, "short_usd": 0.0, "cum_long": 1058757494.3247936, "cum_short": 0.0}, {"price": 59.65446625, "long_usd": 12518357.63570899, "short_usd": 0.0, "cum_long": 1050324346.7924542, "cum_short": 0.0}, {"price": 59.95100875, "long_usd": 16530327.045759529, "short_usd": 0.0, "cum_long": 1037805989.1567452, "cum_short": 0.0}, {"price": 60.24755125, "long_usd": 13096220.380667385, "short_usd": 0.0, "cum_long": 1021275662.1109856, "cum_short": 0.0}, {"price": 60.54409375, "long_usd": 14282595.017670812, "short_usd": 0.0, "cum_long": 1008179441.7303184, "cum_short": 0.0}, {"price": 60.84063625, "long_usd": 14247371.072005328, "short_usd": 0.0, "cum_long": 993896846.7126474, "cum_short": 0.0}, {"price": 61.13717875, "long_usd": 13686058.13562534, "short_usd": 0.0, "cum_long": 979649475.6406422, "cum_short": 0.0}, {"price": 61.43372125, "long_usd": 15005831.597705124, "short_usd": 0.0, "cum_long": 965963417.5050168, "cum_short": 0.0}, {"price": 61.73026375, "long_usd": 11317953.522281077, "short_usd": 0.0, "cum_long": 950957585.9073116, "cum_short": 0.0}, {"price": 62.02680625, "long_usd": 12545374.02740284, "short_usd": 0.0, "cum_long": 939639632.3850306, "cum_short": 0.0}, {"price": 62.32334875, "long_usd": 11174763.257678624, "short_usd": 0.0, "cum_long": 927094258.3576276, "cum_short": 0.0}, {"price": 62.61989125, "long_usd": 11962337.234305998, "short_usd": 0.0, "cum_long": 915919495.0999492, "cum_short": 0.0}, {"price": 62.91643375, "long_usd": 11352832.917360146, "short_usd": 0.0, "cum_long": 903957157.8656431, "cum_short": 0.0}, {"price": 63.21297625, "long_usd": 10940010.756148929, "short_usd": 0.0, "cum_long": 892604324.948283, "cum_short": 0.0}, {"price": 63.50951875, "long_usd": 11197569.613956451, "short_usd": 0.0, "cum_long": 881664314.192134, "cum_short": 0.0}, {"price": 63.80606125, "long_usd": 9030682.219785042, "short_usd": 0.0, "cum_long": 870466744.5781776, "cum_short": 0.0}, {"price": 64.10260375, "long_usd": 9953206.43205147, "short_usd": 0.0, "cum_long": 861436062.3583925, "cum_short": 0.0}, {"price": 64.39914625, "long_usd": 12478599.25238002, "short_usd": 0.0, "cum_long": 851482855.926341, "cum_short": 0.0}, {"price": 64.69568874999999, "long_usd": 10926444.73282347, "short_usd": 0.0, "cum_long": 839004256.673961, "cum_short": 0.0}, {"price": 64.99223125, "long_usd": 12603930.373996971, "short_usd": 0.0, "cum_long": 828077811.9411376, "cum_short": 0.0}, {"price": 65.28877374999999, "long_usd": 19063404.159879956, "short_usd": 0.0, "cum_long": 815473881.5671406, "cum_short": 0.0}, {"price": 65.58531625, "long_usd": 14279117.454163648, "short_usd": 0.0, "cum_long": 796410477.4072607, "cum_short": 0.0}, {"price": 65.88185874999999, "long_usd": 13166135.425058313, "short_usd": 0.0, "cum_long": 782131359.953097, "cum_short": 0.0}, {"price": 66.17840125000001, "long_usd": 14822699.998337716, "short_usd": 0.0, "cum_long": 768965224.5280386, "cum_short": 0.0}, {"price": 66.47494375, "long_usd": 9773848.58848694, "short_usd": 0.0, "cum_long": 754142524.5297009, "cum_short": 0.0}, {"price": 66.77148625000001, "long_usd": 24482739.993718576, "short_usd": 0.0, "cum_long": 744368675.941214, "cum_short": 0.0}, {"price": 67.06802875, "long_usd": 28753069.319342483, "short_usd": 0.0, "cum_long": 719885935.9474953, "cum_short": 0.0}, {"price": 67.36457125000001, "long_usd": 25141408.962918725, "short_usd": 0.0, "cum_long": 691132866.6281528, "cum_short": 0.0}, {"price": 67.66111375, "long_usd": 24214520.412399817, "short_usd": 0.0, "cum_long": 665991457.6652341, "cum_short": 0.0}, {"price": 67.95765625, "long_usd": 23131225.425443936, "short_usd": 0.0, "cum_long": 641776937.2528343, "cum_short": 0.0}, {"price": 68.25419875, "long_usd": 33059119.30913168, "short_usd": 0.0, "cum_long": 618645711.8273904, "cum_short": 0.0}, {"price": 68.55074124999999, "long_usd": 23199257.37898971, "short_usd": 0.0, "cum_long": 585586592.5182588, "cum_short": 0.0}, {"price": 68.84728375, "long_usd": 24333230.53759338, "short_usd": 0.0, "cum_long": 562387335.1392691, "cum_short": 0.0}, {"price": 69.14382624999999, "long_usd": 13562296.63889899, "short_usd": 0.0, "cum_long": 538054104.6016757, "cum_short": 0.0}, {"price": 69.44036875, "long_usd": 11590860.216159554, "short_usd": 0.0, "cum_long": 524491807.9627767, "cum_short": 0.0}, {"price": 69.73691124999999, "long_usd": 9887139.944103671, "short_usd": 0.0, "cum_long": 512900947.74661714, "cum_short": 0.0}, {"price": 70.03345375, "long_usd": 8644995.729880404, "short_usd": 0.0, "cum_long": 503013807.8025135, "cum_short": 0.0}, {"price": 70.32999625, "long_usd": 7335792.406730072, "short_usd": 0.0, "cum_long": 494368812.0726331, "cum_short": 0.0}, {"price": 70.62653875000001, "long_usd": 8646380.124067966, "short_usd": 0.0, "cum_long": 487033019.66590303, "cum_short": 0.0}, {"price": 70.92308125, "long_usd": 13943211.274218597, "short_usd": 0.0, "cum_long": 478386639.5418351, "cum_short": 0.0}, {"price": 71.21962375000001, "long_usd": 10073293.681571765, "short_usd": 0.0, "cum_long": 464443428.26761645, "cum_short": 0.0}, {"price": 71.51616625, "long_usd": 13970439.56516193, "short_usd": 0.0, "cum_long": 454370134.5860447, "cum_short": 0.0}, {"price": 71.81270875000001, "long_usd": 15942147.855955131, "short_usd": 0.0, "cum_long": 440399695.0208827, "cum_short": 0.0}, {"price": 72.10925125, "long_usd": 19386293.215983603, "short_usd": 0.0, "cum_long": 424457547.1649276, "cum_short": 0.0}, {"price": 72.40579375, "long_usd": 18235732.23433657, "short_usd": 0.0, "cum_long": 405071253.948944, "cum_short": 0.0}, {"price": 72.70233625, "long_usd": 13303809.900041625, "short_usd": 0.0, "cum_long": 386835521.7146074, "cum_short": 0.0}, {"price": 72.99887874999999, "long_usd": 16451665.341845945, "short_usd": 0.0, "cum_long": 373531711.8145658, "cum_short": 0.0}, {"price": 73.29542125, "long_usd": 19113754.29788089, "short_usd": 0.0, "cum_long": 357080046.47271985, "cum_short": 0.0}, {"price": 73.59196374999999, "long_usd": 17805007.01573102, "short_usd": 0.0, "cum_long": 337966292.17483896, "cum_short": 0.0}, {"price": 73.88850625, "long_usd": 17525194.09728416, "short_usd": 0.0, "cum_long": 320161285.1591079, "cum_short": 0.0}, {"price": 74.18504874999999, "long_usd": 21648382.578759253, "short_usd": 0.0, "cum_long": 302636091.0618238, "cum_short": 0.0}, {"price": 74.48159125000001, "long_usd": 16217525.08302595, "short_usd": 0.0, "cum_long": 280987708.48306453, "cum_short": 0.0}, {"price": 74.77813375, "long_usd": 16047114.231643071, "short_usd": 0.0, "cum_long": 264770183.4000386, "cum_short": 0.0}, {"price": 75.07467625000001, "long_usd": 27742814.04149521, "short_usd": 0.0, "cum_long": 248723069.16839552, "cum_short": 0.0}, {"price": 75.37121875, "long_usd": 26512286.369676456, "short_usd": 0.0, "cum_long": 220980255.12690032, "cum_short": 0.0}, {"price": 75.66776125000001, "long_usd": 29286470.84422661, "short_usd": 0.0, "cum_long": 194467968.75722384, "cum_short": 0.0}, {"price": 75.96430375, "long_usd": 33294874.771330763, "short_usd": 0.0, "cum_long": 165181497.91299725, "cum_short": 0.0}, {"price": 76.26084625, "long_usd": 25520603.772696037, "short_usd": 0.0, "cum_long": 131886623.14166649, "cum_short": 0.0}, {"price": 76.55738875, "long_usd": 22328709.19678353, "short_usd": 0.0, "cum_long": 106366019.36897044, "cum_short": 0.0}, {"price": 76.85393124999999, "long_usd": 29678522.549133237, "short_usd": 0.0, "cum_long": 84037310.17218693, "cum_short": 0.0}, {"price": 77.15047375, "long_usd": 30376530.729695067, "short_usd": 0.0, "cum_long": 54358787.62305369, "cum_short": 0.0}, {"price": 77.44701624999999, "long_usd": 18806226.07692741, "short_usd": 0.0, "cum_long": 23982256.893358625, "cum_short": 0.0}, {"price": 77.74355875, "long_usd": 4128900.94502071, "short_usd": 0.0, "cum_long": 5176030.816431218, "cum_short": 0.0}, {"price": 78.04010124999999, "long_usd": 1020789.0492231052, "short_usd": 0.0, "cum_long": 1047129.871410508, "cum_short": 0.0}, {"price": 78.33664375000001, "long_usd": 26340.82218739526, "short_usd": 0.0, "cum_long": 26340.82218740271, "cum_short": 0.0}, {"price": 78.63318625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 7.450580596923828e-09, "cum_short": 0.0}, {"price": 78.92972875000001, "long_usd": 7.450580596923828e-09, "short_usd": 0.0, "cum_long": 7.450580596923828e-09, "cum_short": 0.0}, {"price": 79.22627125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.52281375000001, "long_usd": 2.0372681319713593e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.81935625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.11589875000001, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.41244125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.70898375, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.00552625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.30206874999999, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.59861125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.89515374999999, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 82.19169625, "long_usd": 2.3283064365386963e-09, "short_usd": 86098.70690741586, "cum_long": 0.0, "cum_short": 86098.70690741586}, {"price": 82.48823875, "long_usd": 0.0, "short_usd": 2624035.6433487814, "cum_long": 0.0, "cum_short": 2710134.350256197}, {"price": 82.78478125000001, "long_usd": 0.0, "short_usd": 3571142.736581741, "cum_long": 0.0, "cum_short": 6281277.086837938}, {"price": 83.08132375, "long_usd": 0.0, "short_usd": 6246121.84897551, "cum_long": 0.0, "cum_short": 12527398.93581345}, {"price": 83.37786625000001, "long_usd": 6.5192580223083504e-09, "short_usd": 3524853.045951968, "cum_long": 0.0, "cum_short": 16052251.981765416}, {"price": 83.67440875, "long_usd": 5.587935447692871e-09, "short_usd": 7999003.2596533215, "cum_long": 0.0, "cum_short": 24051255.241418734}, {"price": 83.97095125000001, "long_usd": 0.0, "short_usd": 8420460.36764202, "cum_long": 0.0, "cum_short": 32471715.60906076}, {"price": 84.26749375, "long_usd": 0.0, "short_usd": 5610688.256154118, "cum_long": 0.0, "cum_short": 38082403.86521488}, {"price": 84.56403625, "long_usd": 1.862645149230957e-09, "short_usd": 13158657.742300555, "cum_long": 0.0, "cum_short": 51241061.60751543}, {"price": 84.86057875, "long_usd": 0.0, "short_usd": 13411104.685195984, "cum_long": 0.0, "cum_short": 64652166.29271141}, {"price": 85.15712125, "long_usd": 0.0, "short_usd": 13879780.915446794, "cum_long": 0.0, "cum_short": 78531947.20815821}, {"price": 85.45366375, "long_usd": 1.862645149230957e-09, "short_usd": 11441663.043056449, "cum_long": 0.0, "cum_short": 89973610.25121465}, {"price": 85.75020624999999, "long_usd": 0.0, "short_usd": 8380290.726950116, "cum_long": 0.0, "cum_short": 98353900.97816476}, {"price": 86.04674875, "long_usd": 0.0, "short_usd": 11679791.16182531, "cum_long": 0.0, "cum_short": 110033692.13999008}, {"price": 86.34329125, "long_usd": 0.0, "short_usd": 8518832.886660086, "cum_long": 0.0, "cum_short": 118552525.02665016}, {"price": 86.63983375000001, "long_usd": 0.0, "short_usd": 4626611.667387488, "cum_long": 0.0, "cum_short": 123179136.69403765}, {"price": 86.93637625, "long_usd": 2.7939677238464355e-09, "short_usd": 3190864.9836352896, "cum_long": 0.0, "cum_short": 126370001.67767294}, {"price": 87.23291875000001, "long_usd": 0.0, "short_usd": 3851080.078406851, "cum_long": 0.0, "cum_short": 130221081.7560798}, {"price": 87.52946125, "long_usd": 0.0, "short_usd": 2365739.8098819866, "cum_long": 0.0, "cum_short": 132586821.56596178}, {"price": 87.82600375000001, "long_usd": 0.0, "short_usd": 1857460.3799164589, "cum_long": 0.0, "cum_short": 134444281.94587824}, {"price": 88.12254625, "long_usd": 0.0, "short_usd": 4793127.461933727, "cum_long": 0.0, "cum_short": 139237409.40781197}, {"price": 88.41908875, "long_usd": 2.7939677238464355e-09, "short_usd": 9388531.46421702, "cum_long": 0.0, "cum_short": 148625940.87202898}, {"price": 88.71563125, "long_usd": 0.0, "short_usd": 7760223.612232733, "cum_long": 0.0, "cum_short": 156386164.48426172}, {"price": 89.01217375, "long_usd": 0.0, "short_usd": 7421846.487413533, "cum_long": 0.0, "cum_short": 163808010.97167525}, {"price": 89.30871625, "long_usd": 0.0, "short_usd": 11690433.376554646, "cum_long": 0.0, "cum_short": 175498444.3482299}, {"price": 89.60525875, "long_usd": 0.0, "short_usd": 12952129.511907283, "cum_long": 0.0, "cum_short": 188450573.8601372}, {"price": 89.90180125, "long_usd": 0.0, "short_usd": 16656304.26441224, "cum_long": 0.0, "cum_short": 205106878.12454945}, {"price": 90.19834375, "long_usd": 0.0, "short_usd": 9562889.63505419, "cum_long": 0.0, "cum_short": 214669767.7596036}, {"price": 90.49488625, "long_usd": 0.0, "short_usd": 9589961.907612784, "cum_long": 0.0, "cum_short": 224259729.6672164}, {"price": 90.79142875, "long_usd": 0.0, "short_usd": 12727809.999838172, "cum_long": 0.0, "cum_short": 236987539.66705456}, {"price": 91.08797125, "long_usd": 0.0, "short_usd": 17119274.52116738, "cum_long": 0.0, "cum_short": 254106814.18822196}, {"price": 91.38451375, "long_usd": 0.0, "short_usd": 13610948.295959497, "cum_long": 0.0, "cum_short": 267717762.48418143}, {"price": 91.68105625, "long_usd": 0.0, "short_usd": 16612912.910316035, "cum_long": 0.0, "cum_short": 284330675.39449745}, {"price": 91.97759875, "long_usd": 0.0, "short_usd": 12584406.845808571, "cum_long": 0.0, "cum_short": 296915082.240306}, {"price": 92.27414125, "long_usd": 0.0, "short_usd": 18729021.06306572, "cum_long": 0.0, "cum_short": 315644103.3033717}, {"price": 92.57068375, "long_usd": 0.0, "short_usd": 21314431.628632795, "cum_long": 0.0, "cum_short": 336958534.9320045}, {"price": 92.86722625, "long_usd": 0.0, "short_usd": 18141447.04406617, "cum_long": 0.0, "cum_short": 355099981.9760707}, {"price": 93.16376875, "long_usd": 0.0, "short_usd": 16232509.059556115, "cum_long": 0.0, "cum_short": 371332491.0356268}, {"price": 93.46031125, "long_usd": 0.0, "short_usd": 17396128.194147658, "cum_long": 0.0, "cum_short": 388728619.2297745}, {"price": 93.75685375, "long_usd": 0.0, "short_usd": 15849778.307147931, "cum_long": 0.0, "cum_short": 404578397.5369224}, {"price": 94.05339625, "long_usd": 0.0, "short_usd": 10634291.203601278, "cum_long": 0.0, "cum_short": 415212688.7405237}, {"price": 94.34993875, "long_usd": 0.0, "short_usd": 10918520.084965715, "cum_long": 0.0, "cum_short": 426131208.8254894}, {"price": 94.64648125, "long_usd": 0.0, "short_usd": 6078592.455886294, "cum_long": 0.0, "cum_short": 432209801.2813757}, {"price": 94.94302375, "long_usd": 0.0, "short_usd": 10732465.410976645, "cum_long": 0.0, "cum_short": 442942266.6923524}, {"price": 95.23956625, "long_usd": 0.0, "short_usd": 9671562.902536131, "cum_long": 0.0, "cum_short": 452613829.5948885}, {"price": 95.53610875, "long_usd": 0.0, "short_usd": 9928974.113878274, "cum_long": 0.0, "cum_short": 462542803.7087668}, {"price": 95.83265125, "long_usd": 0.0, "short_usd": 13980305.848127512, "cum_long": 0.0, "cum_short": 476523109.55689424}, {"price": 96.12919375, "long_usd": 0.0, "short_usd": 11140496.178990658, "cum_long": 0.0, "cum_short": 487663605.7358849}, {"price": 96.42573625, "long_usd": 0.0, "short_usd": 13088858.625819655, "cum_long": 0.0, "cum_short": 500752464.3617046}, {"price": 96.72227875, "long_usd": 0.0, "short_usd": 12527766.755881565, "cum_long": 0.0, "cum_short": 513280231.1175861}, {"price": 97.01882125, "long_usd": 0.0, "short_usd": 10367308.817325337, "cum_long": 0.0, "cum_short": 523647539.9349115}, {"price": 97.31536375, "long_usd": 0.0, "short_usd": 18599546.82169989, "cum_long": 0.0, "cum_short": 542247086.7566113}, {"price": 97.61190625, "long_usd": 0.0, "short_usd": 17105256.28746102, "cum_long": 0.0, "cum_short": 559352343.0440724}, {"price": 97.90844875, "long_usd": 0.0, "short_usd": 14944692.01445374, "cum_long": 0.0, "cum_short": 574297035.0585262}, {"price": 98.20499125, "long_usd": 0.0, "short_usd": 18298248.25174363, "cum_long": 0.0, "cum_short": 592595283.3102698}, {"price": 98.50153375, "long_usd": 0.0, "short_usd": 13504771.574916242, "cum_long": 0.0, "cum_short": 606100054.8851861}, {"price": 98.79807625, "long_usd": 0.0, "short_usd": 15837908.722571302, "cum_long": 0.0, "cum_short": 621937963.6077573}, {"price": 99.09461875, "long_usd": 0.0, "short_usd": 16721016.783904444, "cum_long": 0.0, "cum_short": 638658980.3916618}, {"price": 99.39116125, "long_usd": 0.0, "short_usd": 16851108.203922722, "cum_long": 0.0, "cum_short": 655510088.5955845}, {"price": 99.68770375, "long_usd": 0.0, "short_usd": 13994451.26344642, "cum_long": 0.0, "cum_short": 669504539.859031}, {"price": 99.98424625, "long_usd": 0.0, "short_usd": 17493507.61613078, "cum_long": 0.0, "cum_short": 686998047.4751618}, {"price": 100.28078875, "long_usd": 0.0, "short_usd": 14713088.107767817, "cum_long": 0.0, "cum_short": 701711135.5829296}, {"price": 100.57733125, "long_usd": 0.0, "short_usd": 13664770.518008742, "cum_long": 0.0, "cum_short": 715375906.1009383}, {"price": 100.87387375, "long_usd": 0.0, "short_usd": 12866988.24428444, "cum_long": 0.0, "cum_short": 728242894.3452227}, {"price": 101.17041625, "long_usd": 0.0, "short_usd": 13096093.21263621, "cum_long": 0.0, "cum_short": 741338987.557859}, {"price": 101.46695875, "long_usd": 0.0, "short_usd": 18480965.770981107, "cum_long": 0.0, "cum_short": 759819953.32884}, {"price": 101.76350125, "long_usd": 0.0, "short_usd": 17264535.85737704, "cum_long": 0.0, "cum_short": 777084489.1862171}, {"price": 102.06004375, "long_usd": 0.0, "short_usd": 14365955.499995517, "cum_long": 0.0, "cum_short": 791450444.6862125}, {"price": 102.35658625, "long_usd": 0.0, "short_usd": 14414271.229664396, "cum_long": 0.0, "cum_short": 805864715.915877}, {"price": 102.65312875, "long_usd": 0.0, "short_usd": 17348447.432207644, "cum_long": 0.0, "cum_short": 823213163.3480847}];
+
+    const slider = document.getElementById('priceSlider');
+    const targetPriceDisplay = document.getElementById('targetPriceDisplay');
+    const pctBadge = document.getElementById('pctBadge');
+    const wipedUsdDisplay = document.getElementById('wipedUsdDisplay');
+    const sideDisplay = document.getElementById('sideDisplay');
+    const riskBadge = document.getElementById('riskBadge');
+    const riskDescription = document.getElementById('riskDescription');
+    const tier10Display = document.getElementById('tier10Display');
+    const tierOtherDisplay = document.getElementById('tierOtherDisplay');
+    const canvas = document.getElementById('depthCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function updateSimulation(targetPrice) {
+      const pct = ((targetPrice - SPOT) / SPOT) * 100;
+      targetPriceDisplay.textContent = '$' + targetPrice.toFixed(2);
+      
+      pctBadge.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+      if (pct > 0.05) {
+        pctBadge.className = 'pct-badge pct-up mono';
+      } else if (pct < -0.05) {
+        pctBadge.className = 'pct-badge pct-down mono';
+      } else {
+        pctBadge.className = 'pct-badge mono';
+        pctBadge.style.background = 'rgba(255,255,255,0.1)';
+        pctBadge.style.color = '#fff';
+      }
+
+      let wipedUsd = 0;
+      let isShort = false;
+
+      if (targetPrice > SPOT) {
+        // Shorts liquidated between SPOT and targetPrice
+        isShort = true;
+        for (const b of BINS) {
+          if (b.price > SPOT && b.price <= targetPrice) {
+            wipedUsd += b.short_usd;
+          }
+        }
+        sideDisplay.textContent = 'Short positions liquidated (Short Squeeze)';
+        wipedUsdDisplay.style.color = 'var(--accent-green)';
+      } else if (targetPrice < SPOT) {
+        // Longs liquidated between targetPrice and SPOT
+        isShort = false;
+        for (const b of BINS) {
+          if (b.price < SPOT && b.price >= targetPrice) {
+            wipedUsd += b.long_usd;
+          }
+        }
+        sideDisplay.textContent = 'Long positions liquidated (Long Flush / Cascade)';
+        wipedUsdDisplay.style.color = 'var(--accent-red)';
+      } else {
+        sideDisplay.textContent = 'At current spot price ($' + SPOT.toFixed(2) + ')';
+        wipedUsdDisplay.style.color = 'var(--accent-cyan)';
+      }
+
+      wipedUsdDisplay.textContent = '$' + (wipedUsd / 1e6).toFixed(1) + 'M';
+
+      // Tier estimate (Tier 10x is ~25%, 5x is 35%, 3x is 25%, 2x is 15%)
+      const t10 = wipedUsd * 0.25;
+      const tOther = wipedUsd * 0.75;
+      tier10Display.textContent = '$' + (t10 / 1e6).toFixed(1) + 'M';
+      tierOtherDisplay.textContent = '$' + (tOther / 1e6).toFixed(1) + 'M';
+
+      // Severity Badge
+      const wipedM = wipedUsd / 1e6;
+      if (wipedM === 0) {
+        riskBadge.className = 'risk-badge risk-low';
+        riskBadge.textContent = 'NEUTRAL (AT SPOT)';
+        riskDescription.textContent = 'No liquidation cascading';
+      } else if (wipedM < 25) {
+        riskBadge.className = 'risk-badge risk-low';
+        riskBadge.textContent = 'LOW CASCADE RISK';
+        riskDescription.textContent = 'Absorption likely via normal orderbook depth';
+      } else if (wipedM < 90) {
+        riskBadge.className = 'risk-badge risk-mod';
+        riskBadge.textContent = 'MODERATE CASCADE RISK';
+        riskDescription.textContent = 'Moderate slippage, local stop runs likely';
+      } else if (wipedM < 220) {
+        riskBadge.className = 'risk-badge risk-high';
+        riskBadge.textContent = 'HIGH SQUEEZE/CASCADE RISK';
+        riskDescription.textContent = 'Significant flash slippage and forced market closes';
+      } else {
+        riskBadge.className = 'risk-badge risk-extreme';
+        riskBadge.textContent = '🔥 EXTREME SYSTEMIC CASCADE';
+        riskDescription.textContent = 'Heavy multi-tier liquidation domino sweep';
+      }
+
+      drawDepthChart(targetPrice);
+    }
+
+    function setPreset(pct) {
+      const p = SPOT * (1 + pct);
+      slider.value = p.toFixed(2);
+      updateSimulation(p);
+    }
+
+    slider.addEventListener('input', (e) => {
+      updateSimulation(parseFloat(e.target.value));
+    });
+
+    // High performance HTML5 Canvas chart renderer
+    function drawDepthChart(targetPrice) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+      const padL = 60, padR = 60, padT = 30, padB = 40;
+      const chartW = w - padL - padR;
+      const chartH = h - padT - padB;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Min/Max price
+      const minP = BINS[0].price;
+      const maxP = BINS[BINS.length - 1].price;
+      const maxCum = Math.max(...BINS.map(b => Math.max(b.cum_long, b.cum_short))) || 1e9;
+
+      function pToX(p) {
+        return padL + ((p - minP) / (maxP - minP)) * chartW;
+      }
+
+      function cumToY(c) {
+        return padT + chartH - (c / maxCum) * chartH;
+      }
+
+      // Background grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; i++) {
+        const y = padT + (chartH / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(w - padR, y);
+        ctx.stroke();
+
+        const val = ((5 - i) / 5) * (maxCum / 1e6);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px "JetBrains Mono"';
+        ctx.textAlign = 'right';
+        ctx.fillText('$' + val.toFixed(0) + 'M', padL - 8, y + 3);
+      }
+
+      // Long Cumulative Area (Red)
+      ctx.beginPath();
+      ctx.moveTo(pToX(minP), padT + chartH);
+      for (const b of BINS) {
+        if (b.price <= SPOT) {
+          ctx.lineTo(pToX(b.price), cumToY(b.cum_long));
+        }
+      }
+      ctx.lineTo(pToX(SPOT), padT + chartH);
+      ctx.closePath();
+      const gradLong = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+      gradLong.addColorStop(0, 'rgba(239, 68, 68, 0.35)');
+      gradLong.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
+      ctx.fillStyle = gradLong;
+      ctx.fill();
+
+      // Long Cumulative Line
+      ctx.beginPath();
+      let started = false;
+      for (const b of BINS) {
+        if (b.price <= SPOT) {
+          const x = pToX(b.price);
+          const y = cumToY(b.cum_long);
+          if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+        }
+      }
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Short Cumulative Area (Green)
+      ctx.beginPath();
+      ctx.moveTo(pToX(SPOT), padT + chartH);
+      for (const b of BINS) {
+        if (b.price >= SPOT) {
+          ctx.lineTo(pToX(b.price), cumToY(b.cum_short));
+        }
+      }
+      ctx.lineTo(pToX(maxP), padT + chartH);
+      ctx.closePath();
+      const gradShort = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+      gradShort.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+      gradShort.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+      ctx.fillStyle = gradShort;
+      ctx.fill();
+
+      // Short Cumulative Line
+      ctx.beginPath();
+      started = false;
+      for (const b of BINS) {
+        if (b.price >= SPOT) {
+          const x = pToX(b.price);
+          const y = cumToY(b.cum_short);
+          if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+        }
+      }
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Spot Line (Cyan)
+      const spotX = pToX(SPOT);
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      ctx.moveTo(spotX, padT);
+      ctx.lineTo(spotX, padT + chartH);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 11px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText('SPOT $' + SPOT.toFixed(2), spotX, padT - 8);
+
+      // Target simulated price line
+      if (Math.abs(targetPrice - SPOT) > 0.05) {
+        const targetX = pToX(targetPrice);
+        ctx.beginPath();
+        ctx.setLineDash([2, 2]);
+        ctx.moveTo(targetX, padT);
+        ctx.lineTo(targetX, padT + chartH);
+        ctx.strokeStyle = targetPrice > SPOT ? '#10b981' : '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = targetPrice > SPOT ? '#10b981' : '#ef4444';
+        ctx.font = 'bold 11px "JetBrains Mono"';
+        ctx.textAlign = 'center';
+        ctx.fillText('TARGET $' + targetPrice.toFixed(2), targetX, padT + chartH + 20);
+      }
+
+      // X-Axis Price Markers
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      const steps = 8;
+      for (let i = 0; i <= steps; i++) {
+        const p = minP + (i / steps) * (maxP - minP);
+        ctx.fillText('$' + p.toFixed(1), pToX(p), padT + chartH + 16);
+      }
+    }
+
+    // Initial render
+    window.addEventListener('resize', () => drawDepthChart(parseFloat(slider.value)));
+    updateSimulation(SPOT);
+  </script>
+</body>
+</html>
