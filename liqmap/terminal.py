@@ -1473,6 +1473,7 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
               main.style.color = 'var(--accent-green)';
               desc.textContent = data.air_pocket_status;
             }}
+          }}
           if (data.internal_ip && document.getElementById('footerInternalIp')) {{
             document.getElementById('footerInternalIp').textContent = data.internal_ip;
           }}
