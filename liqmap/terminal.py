@@ -490,6 +490,72 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
       color: var(--text-dim);
       padding: 1rem 0;
     }}
+
+    @keyframes livePulse {{
+      0%, 100% {{ opacity: 1; transform: scale(1); }}
+      50% {{ opacity: 0.35; transform: scale(0.85); }}
+    }}
+    @keyframes slideUp {{
+      from {{ opacity: 0; transform: translateY(12px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    @keyframes tapeFade {{
+      from {{ opacity: 0; transform: translateY(4px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    .tape-filter-btn {{
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-family: inherit;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }}
+    .tape-filter-btn:hover {{
+      color: #fff;
+      background: rgba(255,255,255,0.08);
+    }}
+    .tape-filter-btn.active {{
+      color: #38bdf8;
+      background: rgba(56,189,248,0.15);
+      font-weight: 700;
+    }}
+    .card-standard {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.73rem;
+      flex-shrink: 0;
+      animation: tapeFade 0.25s ease-out;
+      transition: transform 0.15s ease;
+    }}
+    .card-standard:hover {{
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.2);
+    }}
+    .card-whale {{
+      background: rgba(245,158,11,0.12) !important;
+      border: 1px solid rgba(245,158,11,0.45) !important;
+      box-shadow: 0 0 10px rgba(245,158,11,0.2);
+    }}
+    .card-megalodon {{
+      background: linear-gradient(135deg, rgba(168,85,247,0.22), rgba(245,158,11,0.18)) !important;
+      border: 1px solid #a855f7 !important;
+      box-shadow: 0 0 14px rgba(168,85,247,0.35);
+    }}
+    .card-liq {{
+      background: rgba(239,68,68,0.2) !important;
+      border: 1px solid #ef4444 !important;
+      box-shadow: 0 0 12px rgba(239,68,68,0.3);
+    }}
   </style>
 </head>
 <body>
@@ -673,21 +739,89 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
     </div>
   </section>
 
-  <!-- Live Trade & Liquidation Fire Tape -->
-  <section class="card" style="grid-column: 1 / -1; gap: 0.6rem; padding: 1rem 1.25rem;">
-    <div class="card-header" style="padding-bottom: 0.5rem;">
-      <div style="display:flex;align-items:center;gap:0.6rem;">
-        <span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:50%;box-shadow:0 0 6px #f59e0b;"></span>
-        <span class="card-title" style="color:#f59e0b;">🔥 Live Sub-Second Hyperliquid Trade & Liquidation Tape</span>
+  <!-- Modern Floating Fire Tape & Order Flow Command HUD -->
+  <div id="fireTapeContainer" style="grid-column: 1 / -1; display:flex; flex-direction:column; gap:0.4rem;">
+    <!-- Floating Island HUD -->
+    <div id="tapeIsland" style="background:rgba(10,15,29,0.88);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:0.5rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:0.85rem;backdrop-filter:blur(24px);box-shadow:0 12px 36px rgba(0,0,0,0.55);transition:all 0.3s cubic-bezier(0.16,1,0.3,1);">
+      <!-- Left: HUD Brand & Rolling 60s Net Delta Spark-Bar -->
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:0.45rem;">
+          <span style="width:8px;height:8px;background:#f59e0b;border-radius:50%;box-shadow:0 0 8px #f59e0b;animation:livePulse 1.8s infinite;"></span>
+          <span style="font-weight:700;font-size:0.78rem;color:#f59e0b;letter-spacing:0.05em;">FLOW HUD</span>
+        </div>
+        <!-- 60s Delta Spark-Bar -->
+        <div style="display:flex;flex-direction:column;gap:0.2rem;width:150px;background:rgba(255,255,255,0.03);padding:0.25rem 0.45rem;border-radius:6px;border:1px solid rgba(255,255,255,0.06);" title="60s Taker Volume Imbalance">
+          <div style="display:flex;justify-content:space-between;font-size:0.62rem;font-weight:600;">
+            <span id="deltaBuyText" style="color:var(--accent-green);">B: 50%</span>
+            <span id="deltaSellText" style="color:var(--accent-red);">S: 50%</span>
+          </div>
+          <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;display:flex;">
+            <div id="deltaBuyBar" style="width:50%;background:var(--accent-green);transition:width 0.3s ease;"></div>
+            <div id="deltaSellBar" style="width:50%;background:var(--accent-red);transition:width 0.3s ease;"></div>
+          </div>
+        </div>
       </div>
-      <div class="mono" style="font-size:0.75rem;color:var(--text-dim);" id="termTickLatency">
-        LATENCY: &lt;35ms &bull; FEED: DIRECT WS
+
+      <!-- Center: Sliding Trade Micro-Cards Feed -->
+      <div id="tapeStreamWrapper" onmouseenter="pauseTape()" onmouseleave="resumeTape()" style="display:flex;align-items:center;gap:0.5rem;overflow-x:auto;white-space:nowrap;scrollbar-width:none;flex-grow:1;position:relative;padding:0.1rem 0;">
+        <div id="tapePausedBadge" style="display:none;position:absolute;left:50%;transform:translateX(-50%);background:rgba(245,158,11,0.9);color:#0a0f1d;font-size:0.68rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:4px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.4);">
+          ⏸ PAUSED (HOVER)
+        </div>
+        <div id="termTapeFeed" style="display:flex;align-items:center;gap:0.5rem;transition:opacity 0.2s;">
+          <span style="color:#64748b;font-size:0.75rem;">Connecting live Hyperliquid stream...</span>
+        </div>
+      </div>
+
+      <!-- Right: Filter Pills & Drawer Toggle Button -->
+      <div style="display:flex;align-items:center;gap:0.45rem;flex-shrink:0;">
+        <div style="display:flex;gap:0.25rem;background:rgba(255,255,255,0.04);padding:0.15rem;border-radius:6px;border:1px solid rgba(255,255,255,0.06);">
+          <button id="filterAll" onclick="setTapeFilter('all')" class="tape-filter-btn active">All</button>
+          <button id="filterWhales" onclick="setTapeFilter('whales')" class="tape-filter-btn">🐋 ≥$10k</button>
+          <button id="filterLiqs" onclick="setTapeFilter('liqs')" class="tape-filter-btn">🔥 Liqs</button>
+        </div>
+        <button id="drawerToggleBtn" onclick="toggleTapeDrawer()" style="padding:0.3rem 0.55rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text-muted);border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600;display:inline-flex;align-items:center;gap:0.3rem;transition:all 0.2s;" title="Toggle 3-Column Order Flow Matrix">
+          <span id="drawerIcon">⛶</span> <span style="font-size:0.7rem;">Drawer</span>
+        </button>
       </div>
     </div>
-    <div id="termTapeFeed" style="display:flex;align-items:center;gap:1rem;overflow-x:auto;white-space:nowrap;padding:0.25rem 0;scrollbar-width:none;" class="mono">
-      <span style="color:var(--text-dim);font-size:0.8rem;">Connecting live feed...</span>
+
+    <!-- Expandable 3-Column Order Flow Drawer -->
+    <div id="tapeDrawer" style="display:none;background:rgba(10,15,29,0.95);border:1px solid rgba(255,255,255,0.14);border-radius:14px;padding:0.85rem 1rem;backdrop-filter:blur(24px);box-shadow:0 16px 40px rgba(0,0,0,0.6);animation:slideUp 0.25s cubic-bezier(0.16,1,0.3,1);">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.5rem;margin-bottom:0.6rem;font-size:0.75rem;">
+        <span style="font-weight:700;color:#f1f5f9;letter-spacing:0.04em;">⚡ ORDER FLOW COMMAND MATRIX (REAL-TIME HYPERLIQUID WS)</span>
+        <div style="display:flex;gap:1rem;font-size:0.7rem;color:var(--text-muted);">
+          <span>60s Taker Vol: <b id="drawerVol60s" style="color:var(--accent-cyan);">$0.0M</b></span>
+          <span>Latency: <b id="drawerSpeed" style="color:var(--accent-green);">&lt;35ms</b></span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:0.75rem;max-height:220px;">
+        <!-- Col 1: All Taker Prints -->
+        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:0.5rem;display:flex;flex-direction:column;gap:0.35rem;">
+          <div style="font-size:0.68rem;font-weight:700;color:var(--text-muted);display:flex;justify-content:space-between;">
+            <span>ALL TAKER PRINTS</span>
+            <span id="countAllPrints" style="color:var(--text-dim);">0 PRINTS</span>
+          </div>
+          <div id="drawerListAll" style="overflow-y:auto;max-height:180px;display:flex;flex-direction:column;gap:0.25rem;font-size:0.7rem;"></div>
+        </div>
+        <!-- Col 2: Whale Radar -->
+        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:0.5rem;display:flex;flex-direction:column;gap:0.35rem;">
+          <div style="font-size:0.68rem;font-weight:700;color:var(--accent-amber);display:flex;justify-content:space-between;">
+            <span>🐋 WHALE RADAR (≥$10,000)</span>
+            <span id="countWhalePrints" style="color:var(--accent-amber);">0 WHALES</span>
+          </div>
+          <div id="drawerListWhales" style="overflow-y:auto;max-height:180px;display:flex;flex-direction:column;gap:0.25rem;font-size:0.7rem;"></div>
+        </div>
+        <!-- Col 3: Liquidation Sweeps -->
+        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:0.5rem;display:flex;flex-direction:column;gap:0.35rem;">
+          <div style="font-size:0.68rem;font-weight:700;color:var(--accent-red);display:flex;justify-content:space-between;">
+            <span>🚨 FORCED LIQUIDATIONS & SWEEPS</span>
+            <span id="countLiqPrints" style="color:var(--accent-red);">0 DETECTED</span>
+          </div>
+          <div id="drawerListLiqs" style="overflow-y:auto;max-height:180px;display:flex;flex-direction:column;gap:0.25rem;font-size:0.7rem;"></div>
+        </div>
+      </div>
     </div>
-  </section>
+  </div>
 
   <!-- Interactive Depth & Cumulative Liquidation Canvas -->
   <section class="chart-container">
@@ -1088,6 +1222,85 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
       }}
     }}
 
+    let currentTapeFilter = 'all';
+    let isTapePaused = false;
+    let isDrawerOpen = false;
+    const rollingTrades = [];
+    let totalAllCount = 0, totalWhaleCount = 0, totalLiqCount = 0;
+
+    function pauseTape() {{
+      isTapePaused = true;
+      const b = document.getElementById('tapePausedBadge');
+      if (b) b.style.display = 'block';
+    }}
+
+    function resumeTape() {{
+      isTapePaused = false;
+      const b = document.getElementById('tapePausedBadge');
+      if (b) b.style.display = 'none';
+    }}
+
+    function setTapeFilter(f) {{
+      currentTapeFilter = f;
+      ['filterAll', 'filterWhales', 'filterLiqs'].forEach(id => {{
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('active');
+      }});
+      if (f === 'all') document.getElementById('filterAll').classList.add('active');
+      if (f === 'whales') document.getElementById('filterWhales').classList.add('active');
+      if (f === 'liqs') document.getElementById('filterLiqs').classList.add('active');
+
+      const feed = document.getElementById('termTapeFeed');
+      if (!feed) return;
+      Array.from(feed.children).forEach(child => {{
+        if (!child.dataset) return;
+        if (f === 'all') child.style.display = 'inline-flex';
+        else if (f === 'whales') child.style.display = child.dataset.whale === 'true' ? 'inline-flex' : 'none';
+        else if (f === 'liqs') child.style.display = child.dataset.liq === 'true' ? 'inline-flex' : 'none';
+      }});
+    }}
+
+    function toggleTapeDrawer() {{
+      isDrawerOpen = !isDrawerOpen;
+      const drawer = document.getElementById('tapeDrawer');
+      const icon = document.getElementById('drawerIcon');
+      if (drawer) drawer.style.display = isDrawerOpen ? 'block' : 'none';
+      if (icon) icon.textContent = isDrawerOpen ? '✕' : '⛶';
+    }}
+
+    function updateDeltaBar(trade) {{
+      const now = Date.now();
+      const px = parseFloat(trade.px);
+      const sz = parseFloat(trade.sz);
+      const isBuy = trade.side === 'B' || trade.side === 'buy';
+      const notional = px * sz;
+
+      rollingTrades.push({{ time: trade.time || now, isBuy, notional }});
+      while (rollingTrades.length && (now - rollingTrades[0].time > 60000)) {{
+        rollingTrades.shift();
+      }}
+
+      let buyVal = 0, sellVal = 0;
+      rollingTrades.forEach(t => {{
+        if (t.isBuy) buyVal += t.notional; else sellVal += t.notional;
+      }});
+      const total = buyVal + sellVal;
+      const buyPct = total > 0 ? (buyVal / total * 100) : 50;
+      const sellPct = 100 - buyPct;
+
+      const bBar = document.getElementById('deltaBuyBar');
+      const sBar = document.getElementById('deltaSellBar');
+      const bTxt = document.getElementById('deltaBuyText');
+      const sTxt = document.getElementById('deltaSellText');
+      const dVol = document.getElementById('drawerVol60s');
+
+      if (bBar) bBar.style.width = buyPct.toFixed(1) + '%';
+      if (sBar) sBar.style.width = sellPct.toFixed(1) + '%';
+      if (bTxt) bTxt.textContent = 'B: ' + buyPct.toFixed(0) + '% ($' + (buyVal/1e3).toFixed(0) + 'k)';
+      if (sTxt) sTxt.textContent = 'S: ' + sellPct.toFixed(0) + '% ($' + (sellVal/1e3).toFixed(0) + 'k)';
+      if (dVol) dVol.textContent = '$' + (total / 1e6).toFixed(2) + 'M';
+    }}
+
     function addTradeToTape(t) {{
       const feed = document.getElementById('termTapeFeed');
       if (!feed) return;
@@ -1095,18 +1308,74 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
       const px = parseFloat(t.px);
       const sz = parseFloat(t.sz);
       const notional = px * sz;
-      const isWhale = notional >= 15000;
+      const isWhale = notional >= 10000;
+      const isMegalodon = notional >= 50000;
+      const isLiq = t.liquidation === true || t.side === 'LIQ';
       const timeStr = new Date(t.time || Date.now()).toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit', second:'2-digit'}});
 
       playTickSound(isBuy, isWhale);
+      updateDeltaBar(t);
 
-      const item = document.createElement('span');
-      item.style.cssText = 'display:inline-flex;align-items:center;gap:0.4rem;padding:0.2rem 0.5rem;border-radius:4px;background:rgba(255,255,255,0.03);flex-shrink:0;';
-      item.innerHTML = `<span style="color:var(--text-dim);font-size:0.75rem;">${{timeStr}}</span> ` +
-                       `<b style="color:${{isBuy ? 'var(--accent-green)' : 'var(--accent-red)'}};">${{isBuy ? 'BUY' : 'SELL'}}</b> ` +
+      totalAllCount++;
+      if (isWhale) totalWhaleCount++;
+      if (isLiq) totalLiqCount++;
+
+      const cAll = document.getElementById('countAllPrints');
+      const cWhale = document.getElementById('countWhalePrints');
+      const cLiq = document.getElementById('countLiqPrints');
+      if (cAll) cAll.textContent = totalAllCount + ' PRINTS';
+      if (cWhale) cWhale.textContent = totalWhaleCount + ' WHALES';
+      if (cLiq) cLiq.textContent = totalLiqCount + ' DETECTED';
+
+      const drawerItemHtml = `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.2rem 0.35rem;border-radius:4px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);">
+        <span style="color:var(--text-dim);">${{timeStr}}</span>
+        <b style="color:${{isBuy ? 'var(--accent-green)' : 'var(--accent-red)'}};">${{isBuy ? 'BUY' : 'SELL'}}</b>
+        <span>${{sz.toFixed(2)}} @ $${{px.toFixed(2)}}</span>
+        <span style="color:var(--text-main);font-weight:600;">$${{Math.round(notional).toLocaleString()}}</span>
+      </div>`;
+
+      const listAll = document.getElementById('drawerListAll');
+      if (listAll) {{
+        listAll.insertAdjacentHTML('afterbegin', drawerItemHtml);
+        if (listAll.children.length > 40) listAll.removeChild(listAll.lastChild);
+      }}
+      if (isWhale) {{
+        const listWhales = document.getElementById('drawerListWhales');
+        if (listWhales) {{
+          listWhales.insertAdjacentHTML('afterbegin', drawerItemHtml);
+          if (listWhales.children.length > 40) listWhales.removeChild(listWhales.lastChild);
+        }}
+      }}
+      if (isLiq) {{
+        const listLiqs = document.getElementById('drawerListLiqs');
+        if (listLiqs) {{
+          listLiqs.insertAdjacentHTML('afterbegin', drawerItemHtml);
+          if (listLiqs.children.length > 40) listLiqs.removeChild(listLiqs.lastChild);
+        }}
+      }}
+
+      if (isTapePaused) return;
+
+      let cardClass = 'card-standard';
+      if (isMegalodon) cardClass += ' card-megalodon';
+      else if (isWhale) cardClass += ' card-whale';
+      else if (isLiq) cardClass += ' card-liq';
+
+      const item = document.createElement('div');
+      item.className = cardClass;
+      item.dataset.whale = isWhale ? 'true' : 'false';
+      item.dataset.liq = isLiq ? 'true' : 'false';
+
+      if (currentTapeFilter === 'whales' && !isWhale) item.style.display = 'none';
+      if (currentTapeFilter === 'liqs' && !isLiq) item.style.display = 'none';
+
+      item.innerHTML = `<span style="color:var(--text-dim);font-size:0.68rem;">${{timeStr}}</span> ` +
+                       `<b style="color:${{isBuy ? 'var(--accent-green)' : 'var(--accent-red)'}};font-size:0.75rem;">${{isBuy ? 'BUY ▲' : 'SELL ▼'}}</b> ` +
                        `<span>${{sz.toFixed(2)}} @ $${{px.toFixed(2)}}</span> ` +
-                       `<span style="color:var(--text-muted);font-size:0.75rem;">($${{Math.round(notional).toLocaleString()}})</span>` +
-                       (isWhale ? ` <span style="background:rgba(245,158,11,0.2);color:#f59e0b;padding:0.1rem 0.35rem;border-radius:3px;font-size:0.65rem;font-weight:700;">🐋 WHALE</span>` : '');
+                       `<span style="color:var(--text-main);font-weight:600;">($${{Math.round(notional).toLocaleString()}})</span>` +
+                       (isMegalodon ? ` <span style="background:#a855f7;color:#fff;padding:0.1rem 0.35rem;border-radius:3px;font-size:0.62rem;font-weight:700;">🚨 MEGALODON</span>` :
+                        (isWhale ? ` <span style="background:rgba(245,158,11,0.25);color:#f59e0b;padding:0.1rem 0.35rem;border-radius:3px;font-size:0.62rem;font-weight:700;">🐋 WHALE</span>` : '')) +
+                       (isLiq ? ` <span style="background:#ef4444;color:#fff;padding:0.1rem 0.35rem;border-radius:3px;font-size:0.62rem;font-weight:700;">🔥 LIQ</span>` : '');
 
       feed.insertBefore(item, feed.firstChild);
       while (feed.children.length > 20) {{
