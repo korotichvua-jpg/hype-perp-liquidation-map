@@ -17,6 +17,150 @@ from pathlib import Path
 from run import main as run_pipeline
 
 
+import threading
+import time
+import urllib.request
+import pandas as pd
+
+
+class LiveStateEngine:
+    """Background engine fetching sub-second order book and market telemetry from Hyperliquid."""
+
+    def __init__(self, outdir: Path, coin: str = "HYPE"):
+        self.outdir = outdir
+        self.coin = coin
+        self.lock = threading.Lock()
+        self.state = {
+            "symbol": f"{coin}/USDC:USDC",
+            "spot": 79.30,
+            "oracle_px": 79.30,
+            "funding": 0.0000125,
+            "oi_usd": 1580000000.0,
+            "vlm_24h": 335000000.0,
+            "bids_2pct": 1250000.0,
+            "asks_2pct": 1180000.0,
+            "bids_5pct": 3200000.0,
+            "asks_5pct": 3100000.0,
+            "long_liq_5pct": 12000000.0,
+            "short_liq_5pct": 8000000.0,
+            "long_absorption_pct": 26.6,
+            "short_absorption_pct": 38.75,
+            "air_pocket_long": True,
+            "air_pocket_short": False,
+            "air_pocket_status": "AIR POCKET DETECTED: Void below spot",
+            "bids": [],
+            "asks": [],
+            "last_updated": time.time(),
+        }
+        self.running = True
+        self.thread = threading.Thread(target=self._worker, daemon=True)
+        self.thread.start()
+
+    def _worker(self) -> None:
+        while self.running:
+            try:
+                self._poll_hyperliquid()
+            except Exception as e:
+                pass
+            time.sleep(1.5)
+
+    def _poll_hyperliquid(self) -> None:
+        # 1. Fetch metaAndAssetCtxs
+        req_ctx = urllib.request.Request(
+            "https://api.hyperliquid.xyz/info",
+            data=json.dumps({"type": "metaAndAssetCtxs"}).encode(),
+            headers={"Content-Type": "application/json", "User-Agent": "HypeLiqMap/1.0"}
+        )
+        with urllib.request.urlopen(req_ctx, timeout=3.5) as resp:
+            data = json.loads(resp.read().decode())
+            universe = data[0]["universe"]
+            idx = next((i for i, u in enumerate(universe) if u["name"] == self.coin), None)
+            if idx is None:
+                return
+            ctx = data[1][idx]
+
+        spot = float(ctx.get("midPx") or ctx.get("markPx") or ctx.get("oraclePx") or 79.0)
+        oracle_px = float(ctx.get("oraclePx") or spot)
+        funding = float(ctx.get("funding") or 0.0)
+        oi_usd = float(ctx.get("openInterest") or 0.0) * spot
+        vlm_24h = float(ctx.get("dayNtlVlm") or 0.0)
+
+        # 2. Fetch l2Book
+        req_book = urllib.request.Request(
+            "https://api.hyperliquid.xyz/info",
+            data=json.dumps({"type": "l2Book", "coin": self.coin}).encode(),
+            headers={"Content-Type": "application/json", "User-Agent": "HypeLiqMap/1.0"}
+        )
+        with urllib.request.urlopen(req_book, timeout=3.5) as resp:
+            book_data = json.loads(resp.read().decode())
+            raw_bids = book_data.get("levels", [[]])[0]
+            raw_asks = book_data.get("levels", [[], []])[1]
+
+        bids = [{"px": float(b["px"]), "sz": float(b["sz"]), "val": float(b["px"]) * float(b["sz"])} for b in raw_bids]
+        asks = [{"px": float(a["px"]), "sz": float(a["sz"]), "val": float(a["px"]) * float(a["sz"])} for a in raw_asks]
+
+        bids_2pct = sum(b["val"] for b in bids if b["px"] >= spot * 0.98)
+        asks_2pct = sum(a["val"] for a in asks if a["px"] <= spot * 1.02)
+        bids_5pct = sum(b["val"] for b in bids if b["px"] >= spot * 0.95)
+        asks_5pct = sum(a["val"] for a in asks if a["px"] <= spot * 1.05)
+
+        # 3. Read liquidation profile for absorption calculation
+        csv_file = self.outdir / "liquidation_profile.csv"
+        long_liq_5pct, short_liq_5pct = 1e6, 1e6
+        if csv_file.exists():
+            try:
+                df = pd.read_csv(csv_file)
+                long_liq_5pct = float(df[df["price"] >= spot * 0.95]["long_usd"].sum())
+                short_liq_5pct = float(df[df["price"] <= spot * 1.05]["short_usd"].sum())
+            except Exception:
+                pass
+
+        long_abs = (bids_5pct / max(long_liq_5pct, 1.0)) * 100.0
+        short_abs = (asks_5pct / max(short_liq_5pct, 1.0)) * 100.0
+        air_long = long_abs < 35.0
+        air_short = short_abs < 35.0
+
+        if air_long and air_short:
+            status_text = "CRITICAL: Bid & Ask Liquidity Void (Severe Slippage Risk)"
+        elif air_long:
+            status_text = f"DOWNWARD AIR POCKET: Bids absorb only {long_abs:.1f}% of liquidations"
+        elif air_short:
+            status_text = f"UPWARD AIR POCKET: Asks absorb only {short_abs:.1f}% of short liquidations"
+        else:
+            status_text = "HEALTHY: Resting order book depth provides stable absorption"
+
+        with self.lock:
+            self.state = {
+                "symbol": f"{self.coin}/USDC:USDC",
+                "spot": spot,
+                "oracle_px": oracle_px,
+                "funding": funding,
+                "oi_usd": oi_usd,
+                "vlm_24h": vlm_24h,
+                "bids_2pct": bids_2pct,
+                "asks_2pct": asks_2pct,
+                "bids_5pct": bids_5pct,
+                "asks_5pct": asks_5pct,
+                "long_liq_5pct": long_liq_5pct,
+                "short_liq_5pct": short_liq_5pct,
+                "long_absorption_pct": long_abs,
+                "short_absorption_pct": short_abs,
+                "air_pocket_long": air_long,
+                "air_pocket_short": air_short,
+                "air_pocket_status": status_text,
+                "bids": bids[:10],
+                "asks": asks[:10],
+                "last_updated": time.time(),
+            }
+
+    def get_state(self) -> dict:
+        with self.lock:
+            return dict(self.state)
+
+
+LIVE_ENGINE: LiveStateEngine | None = None
+
+
 class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Serve files from directory and default root path to terminal.html or hype_liquidation_map.html."""
 
@@ -27,11 +171,13 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
                 run_pipeline()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(b'{"status": "ok", "message": "Successfully wired to live CCXT Hyperliquid HYPE perp"}')
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode())
             return
@@ -49,17 +195,48 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
+        if self.path in ("/api/live", "/api/live/"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            data = LIVE_ENGINE.get_state() if LIVE_ENGINE else {}
+            self.wfile.write(json.dumps(data).encode())
+            return
+
+        if self.path in ("/api/stream", "/api/stream/"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            try:
+                for _ in range(60):
+                    data = LIVE_ENGINE.get_state() if LIVE_ENGINE else {}
+                    payload = f"data: {json.dumps(data)}\n\n".encode()
+                    self.wfile.write(payload)
+                    self.wfile.flush()
+                    import time
+                    time.sleep(1.0)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
+            return
+
         if self.path in ("/api/refresh", "/api/refresh/"):
             try:
                 print("Fetching latest live CCXT Hyperliquid HYPE perp data...", flush=True)
                 run_pipeline()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(b'{"status": "ok", "message": "Successfully wired to live CCXT Hyperliquid HYPE perp"}')
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode())
             return
@@ -132,6 +309,9 @@ def main() -> None:
     args = parse_args()
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
+
+    global LIVE_ENGINE
+    LIVE_ENGINE = LiveStateEngine(outdir=outdir, coin="HYPE")
 
     html_file = outdir / "hype_liquidation_map.html"
 

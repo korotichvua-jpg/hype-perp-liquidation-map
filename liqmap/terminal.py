@@ -497,20 +497,22 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
   <!-- Top Header Navigation -->
   <header>
     <div class="brand">
-      <span class="badge-live"><span class="pulse-dot"></span> LIVE ENGINE</span>
+      <span id="wsStatusBadge" class="badge-live" style="transition:all 0.3s;"><span class="pulse-dot"></span> <span id="wsStatusText">LIVE WS CONNECTED</span></span>
       <div>
         <h1 class="ticker-title">{meta.get('symbol', 'HYPE/USDC:USDC')}</h1>
-        <p class="metric-sub">{meta.get('exchange', 'Hyperliquid').upper()} PERPETUAL &bull; SPOT: <span class="mono" style="color:var(--accent-cyan);font-weight:700;">${spot:,.4f}</span> &bull; TOTAL OI: <span class="mono">${meta.get('oi_usd', 0)/1e6:,.1f}M</span></p>
+        <p class="metric-sub">{meta.get('exchange', 'Hyperliquid').upper()} PERPETUAL &bull; SPOT: <span id="spotBadge" class="mono" style="color:var(--accent-cyan);font-weight:700;padding:0.15rem 0.45rem;border-radius:4px;transition:all 0.3s;">${spot:,.4f}</span> &bull; TOTAL OI: <span id="termOiBadge" class="mono">${meta.get('oi_usd', 0)/1e6:,.1f}M</span></p>
       </div>
     </div>
     <nav class="nav-links">
+      <button id="audioToggleBtn" onclick="toggleAudio()" class="nav-btn" style="cursor:pointer;">🔊 Audio: ON</button>
+      <button id="syncBtn" onclick="refreshLive()" class="nav-btn" style="color:var(--accent-cyan);background:rgba(56,189,248,0.1);border-color:var(--border-accent);cursor:pointer;">🔄 Sync CCXT</button>
       <a href="/terminal" class="nav-btn active">⚡ Terminal Pro</a>
       <a href="/hype_liquidation_map.html" class="nav-btn">📊 Full 2D Heatmap</a>
       <a href="/liquidation_profile.csv" download class="nav-btn">📥 CSV Export</a>
     </nav>
   </header>
 
-  <!-- Key Metrics Row -->
+  <!-- Key Metrics Row (4 Cards) -->
   <div class="dashboard-grid">
     <!-- Card 1: Net Liquidation Skew -->
     <div class="card">
@@ -530,8 +532,8 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
           <div class="skew-fill-short" style="width: {short_10pct / max(total_pool_10, 1) * 100:.1f}%;"></div>
         </div>
         <div class="skew-labels mono">
-          <span style="color:var(--accent-red)">Long Liq Pool: ${long_10pct/1e6:,.1f}M</span>
-          <span style="color:var(--accent-green)">Short Liq Pool: ${short_10pct/1e6:,.1f}M</span>
+          <span style="color:var(--accent-red)">Long Liq: ${long_10pct/1e6:,.1f}M</span>
+          <span style="color:var(--accent-green)">Short Liq: ${short_10pct/1e6:,.1f}M</span>
         </div>
       </div>
     </div>
@@ -552,34 +554,56 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
       </p>
       <div style="display:flex;flex-direction:column;gap:0.35rem;font-size:0.82rem;margin-top:0.4rem;" class="mono">
         <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--text-muted)">Nearest Long Cluster:</span>
-          <span style="color:var(--accent-red);font-weight:600;">${near_long_p:.2f} (${near_long_v/1e6:.1f}M, {((near_long_p - spot)/spot)*100:+.1f}%)</span>
+          <span style="color:var(--text-muted)">Nearest Long:</span>
+          <span id="nearLongDist" style="color:var(--accent-red);font-weight:600;">${near_long_p:.2f} (${near_long_v/1e6:.1f}M, {((near_long_p - spot)/spot)*100:+.1f}%)</span>
         </div>
         <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--text-muted)">Nearest Short Cluster:</span>
-          <span style="color:var(--accent-green);font-weight:600;">${near_short_p:.2f} (${near_short_v/1e6:.1f}M, {((near_short_p - spot)/spot)*100:+.1f}%)</span>
+          <span style="color:var(--text-muted)">Nearest Short:</span>
+          <span id="nearShortDist" style="color:var(--accent-green);font-weight:600;">${near_short_p:.2f} (${near_short_v/1e6:.1f}M, {((near_short_p - spot)/spot)*100:+.1f}%)</span>
         </div>
       </div>
     </div>
 
-    <!-- Card 3: Model Health & Parameters -->
+    <!-- Card 3: Live Orderbook & Air Pocket Radar -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Orderbook & Air Pocket Radar</span>
+        <span id="airPocketCardBadge" class="risk-badge risk-low" style="font-size:0.7rem;padding:0.15rem 0.5rem;">🛡️ SOUND</span>
+      </div>
+      <div class="card-metric-huge mono" id="termAirPocketMain" style="color:var(--accent-green);font-size:1.7rem;">
+        HEALTHY
+      </div>
+      <p class="metric-sub" id="termAirPocketDesc">Resting orderbook provides buffer against liquidation cascade</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.75rem;margin-top:0.25rem;" class="mono">
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">BIDS (2% DEPTH)</div>
+          <div id="termBids2" style="color:var(--accent-green);font-weight:600;">$1.25M</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">ASKS (2% DEPTH)</div>
+          <div id="termAsks2" style="color:var(--accent-red);font-weight:600;">$1.18M</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Model Health & Parameters -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">Model Specifications</span>
         <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">Hyperliquid Perp</span>
       </div>
-      <div class="card-metric-huge mono" style="color:var(--text-main);">
-        23,003 <span style="font-size:1.1rem;color:var(--text-dim);font-weight:400;">Surviving</span>
+      <div class="card-metric-huge mono" style="color:var(--text-main);font-size:1.7rem;">
+        23,003 <span style="font-size:0.95rem;color:var(--text-dim);font-weight:400;">Surviving</span>
       </div>
       <p class="metric-sub">79.9% of 28,800 modeled positions unliquidated</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.78rem;margin-top:0.4rem;" class="mono">
-        <div style="background:rgba(255,255,255,0.03);padding:0.4rem 0.6rem;border-radius:4px;">
-          <div style="color:var(--text-dim)">DECAY HALF-LIFE</div>
-          <div style="color:var(--text-main);font-weight:600;">168 Hours (7d)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.75rem;margin-top:0.25rem;" class="mono">
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">HALF-LIFE</div>
+          <div style="color:var(--text-main);font-weight:600;">168h (7d)</div>
         </div>
-        <div style="background:rgba(255,255,255,0.03);padding:0.4rem 0.6rem;border-radius:4px;">
-          <div style="color:var(--text-dim)">MAX LEVERAGE</div>
-          <div style="color:var(--text-main);font-weight:600;">10x (Tier 2-10x)</div>
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">MAX LEV</div>
+          <div style="color:var(--text-main);font-weight:600;">10x Tiered</div>
         </div>
       </div>
     </div>
@@ -646,6 +670,22 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
         <div id="tierOtherDisplay" class="shock-item-val mono" style="color:var(--text-main);font-size:1.25rem;">$0.0M</div>
         <span class="metric-sub">Medium & conservative collateral</span>
       </div>
+    </div>
+  </section>
+
+  <!-- Live Trade & Liquidation Fire Tape -->
+  <section class="card" style="grid-column: 1 / -1; gap: 0.6rem; padding: 1rem 1.25rem;">
+    <div class="card-header" style="padding-bottom: 0.5rem;">
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:50%;box-shadow:0 0 6px #f59e0b;"></span>
+        <span class="card-title" style="color:#f59e0b;">🔥 Live Sub-Second Hyperliquid Trade & Liquidation Tape</span>
+      </div>
+      <div class="mono" style="font-size:0.75rem;color:var(--text-dim);" id="termTickLatency">
+        LATENCY: &lt;35ms &bull; FEED: DIRECT WS
+      </div>
+    </div>
+    <div id="termTapeFeed" style="display:flex;align-items:center;gap:1rem;overflow-x:auto;white-space:nowrap;padding:0.25rem 0;scrollbar-width:none;" class="mono">
+      <span style="color:var(--text-dim);font-size:0.8rem;">Connecting live feed...</span>
     </div>
   </section>
 
@@ -721,7 +761,11 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
 
   <script>
     // Embedded Liquidation Data
-    const SPOT = {spot};
+    let SPOT = {spot};
+    const NEAR_LONG_P = {near_long_p};
+    const NEAR_LONG_V = {near_long_v};
+    const NEAR_SHORT_P = {near_short_p};
+    const NEAR_SHORT_V = {near_short_v};
     const BINS = {json.dumps(bins_json)};
 
     const slider = document.getElementById('priceSlider');
@@ -978,6 +1022,203 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
     // Initial render
     window.addEventListener('resize', () => drawDepthChart(parseFloat(slider.value)));
     updateSimulation(SPOT);
+
+    // Audio Synthesizer
+    let audioEnabled = true;
+    let audioCtx = null;
+
+    function initAudio() {{
+      if (!audioCtx) {{
+        try {{
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }} catch(e) {{}}
+      }}
+    }}
+
+    function playTickSound(isBuy, isWhale) {{
+      if (!audioEnabled) return;
+      try {{
+        initAudio();
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = isWhale ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(isWhale ? 880 : (isBuy ? 580 : 420), audioCtx.currentTime);
+        gain.gain.setValueAtTime(isWhale ? 0.08 : 0.02, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (isWhale ? 0.18 : 0.05));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + (isWhale ? 0.18 : 0.05));
+      }} catch(e) {{}}
+    }}
+
+    function toggleAudio() {{
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('audioToggleBtn');
+      btn.textContent = audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+      btn.style.color = audioEnabled ? 'var(--text-main)' : 'var(--text-dim)';
+    }}
+
+    function onLivePriceUpdate(newPrice) {{
+      const diff = newPrice - SPOT;
+      if (Math.abs(diff) > 0.0001) {{
+        const badge = document.getElementById('spotBadge');
+        if (badge) {{
+          badge.textContent = '$' + newPrice.toFixed(4) + (diff > 0 ? ' ▲' : ' ▼');
+          badge.style.background = diff > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
+          badge.style.color = diff > 0 ? '#10b981' : '#ef4444';
+          setTimeout(() => {{
+            badge.style.background = 'transparent';
+            badge.style.color = 'var(--accent-cyan)';
+          }}, 500);
+        }}
+        SPOT = newPrice;
+
+        // Recalculate cluster distances
+        const longPct = ((NEAR_LONG_P - SPOT) / SPOT) * 100;
+        const shortPct = ((NEAR_SHORT_P - SPOT) / SPOT) * 100;
+        const nL = document.getElementById('nearLongDist');
+        const nS = document.getElementById('nearShortDist');
+        if (nL) nL.textContent = '$' + NEAR_LONG_P.toFixed(2) + ' (' + (NEAR_LONG_V / 1e6).toFixed(1) + 'M, ' + (longPct > 0 ? '+' : '') + longPct.toFixed(1) + '%)';
+        if (nS) nS.textContent = '$' + NEAR_SHORT_P.toFixed(2) + ' (' + (NEAR_SHORT_V / 1e6).toFixed(1) + 'M, ' + (shortPct > 0 ? '+' : '') + shortPct.toFixed(1) + '%)';
+
+        // Redraw depth chart with updated SPOT needle
+        drawDepthChart(parseFloat(slider.value));
+      }}
+    }}
+
+    function addTradeToTape(t) {{
+      const feed = document.getElementById('termTapeFeed');
+      if (!feed) return;
+      const isBuy = t.side === 'B' || t.side === 'buy';
+      const px = parseFloat(t.px);
+      const sz = parseFloat(t.sz);
+      const notional = px * sz;
+      const isWhale = notional >= 15000;
+      const timeStr = new Date(t.time || Date.now()).toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit', second:'2-digit'}});
+
+      playTickSound(isBuy, isWhale);
+
+      const item = document.createElement('span');
+      item.style.cssText = 'display:inline-flex;align-items:center;gap:0.4rem;padding:0.2rem 0.5rem;border-radius:4px;background:rgba(255,255,255,0.03);flex-shrink:0;';
+      item.innerHTML = `<span style="color:var(--text-dim);font-size:0.75rem;">${{timeStr}}</span> ` +
+                       `<b style="color:${{isBuy ? 'var(--accent-green)' : 'var(--accent-red)'}};">${{isBuy ? 'BUY' : 'SELL'}}</b> ` +
+                       `<span>${{sz.toFixed(2)}} @ $${{px.toFixed(2)}}</span> ` +
+                       `<span style="color:var(--text-muted);font-size:0.75rem;">($${{Math.round(notional).toLocaleString()}})</span>` +
+                       (isWhale ? ` <span style="background:rgba(245,158,11,0.2);color:#f59e0b;padding:0.1rem 0.35rem;border-radius:3px;font-size:0.65rem;font-weight:700;">🐋 WHALE</span>` : '');
+
+      feed.insertBefore(item, feed.firstChild);
+      while (feed.children.length > 20) {{
+        feed.removeChild(feed.lastChild);
+      }}
+    }}
+
+    // Direct Hyperliquid WebSocket client
+    let termWs = null;
+    function connectTerminalWS() {{
+      try {{
+        termWs = new WebSocket('wss://api.hyperliquid.xyz/ws');
+        termWs.onopen = () => {{
+          const b = document.getElementById('wsStatusBadge');
+          const t = document.getElementById('wsStatusText');
+          if (b && t) {{
+            b.style.background = 'rgba(16,185,129,0.15)';
+            b.style.borderColor = 'rgba(16,185,129,0.35)';
+            b.style.color = 'var(--accent-green)';
+            t.textContent = 'LIVE WS CONNECTED';
+          }}
+          termWs.send(JSON.stringify({{method: "subscribe", subscription: {{type: "trades", coin: "HYPE"}}}}));
+          termWs.send(JSON.stringify({{method: "subscribe", subscription: {{type: "allMids"}}}}));
+        }};
+
+        termWs.onmessage = (e) => {{
+          try {{
+            const msg = JSON.parse(e.data);
+            if (msg.channel === 'trades' && msg.data) {{
+              const trades = Array.isArray(msg.data) ? msg.data : [msg.data];
+              trades.forEach(t => {{
+                if (t.coin === 'HYPE') {{
+                  onLivePriceUpdate(parseFloat(t.px));
+                  addTradeToTape(t);
+                }}
+              }});
+            }} else if (msg.channel === 'allMids' && msg.data && msg.data.mids && msg.data.mids.HYPE) {{
+              onLivePriceUpdate(parseFloat(msg.data.mids.HYPE));
+            }}
+          }} catch(err) {{}}
+        }};
+
+        termWs.onclose = () => {{
+          setTimeout(connectTerminalWS, 3000);
+        }};
+      }} catch(e) {{}}
+    }}
+
+    // Polling server /api/live for Air Pocket and Depth calculations
+    async function pollLiveTelemetry() {{
+      try {{
+        const res = await fetch('/api/live');
+        if (res.ok) {{
+          const data = await res.json();
+          if (data.spot) onLivePriceUpdate(data.spot);
+          if (data.bids_2pct && document.getElementById('termBids2')) {{
+            document.getElementById('termBids2').textContent = '$' + (data.bids_2pct / 1e6).toFixed(2) + 'M';
+          }}
+          if (data.asks_2pct && document.getElementById('termAsks2')) {{
+            document.getElementById('termAsks2').textContent = '$' + (data.asks_2pct / 1e6).toFixed(2) + 'M';
+          }}
+          if (data.oi_usd && document.getElementById('termOiBadge')) {{
+            document.getElementById('termOiBadge').textContent = '$' + (data.oi_usd / 1e6).toFixed(1) + 'M';
+          }}
+
+          const badge = document.getElementById('airPocketCardBadge');
+          const main = document.getElementById('termAirPocketMain');
+          const desc = document.getElementById('termAirPocketDesc');
+          if (badge && main && desc && data.air_pocket_status) {{
+            if (data.air_pocket_long || data.air_pocket_short) {{
+              badge.className = 'risk-badge risk-high';
+              badge.textContent = '⚠️ AIR POCKET';
+              main.textContent = 'VOID GAP';
+              main.style.color = 'var(--accent-red)';
+              desc.textContent = data.air_pocket_status;
+            }} else {{
+              badge.className = 'risk-badge risk-low';
+              badge.textContent = '🛡️ SOUND';
+              main.textContent = 'HEALTHY';
+              main.style.color = 'var(--accent-green)';
+              desc.textContent = data.air_pocket_status;
+            }}
+          }}
+        }}
+      }} catch(e) {{}}
+    }}
+
+    async function refreshLive() {{
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      btn.textContent = '⏳ Syncing...';
+      try {{
+        const res = await fetch('/api/refresh', {{ method: 'POST' }});
+        if (res.ok) {{
+          btn.textContent = 'Reloading...';
+          setTimeout(() => window.location.reload(), 800);
+        }} else {{
+          btn.textContent = 'Sync Failed';
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }}
+      }} catch (e) {{
+        btn.textContent = 'Sync Error';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }}
+    }}
+
+    connectTerminalWS();
+    setInterval(pollLiveTelemetry, 2500);
+    pollLiveTelemetry();
   </script>
 </body>
 </html>

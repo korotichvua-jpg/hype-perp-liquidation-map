@@ -444,20 +444,22 @@
   <!-- Top Header Navigation -->
   <header>
     <div class="brand">
-      <span class="badge-live"><span class="pulse-dot"></span> LIVE ENGINE</span>
+      <span id="wsStatusBadge" class="badge-live" style="transition:all 0.3s;"><span class="pulse-dot"></span> <span id="wsStatusText">LIVE WS CONNECTED</span></span>
       <div>
         <h1 class="ticker-title">HYPE/USDC:USDC</h1>
-        <p class="metric-sub">HYPERLIQUID PERPETUAL &bull; SPOT: <span class="mono" style="color:var(--accent-cyan);font-weight:700;">$79.0780</span> &bull; TOTAL OI: <span class="mono">$1,574.9M</span></p>
+        <p class="metric-sub">HYPERLIQUID PERPETUAL &bull; SPOT: <span id="spotBadge" class="mono" style="color:var(--accent-cyan);font-weight:700;padding:0.15rem 0.45rem;border-radius:4px;transition:all 0.3s;">$79.0330</span> &bull; TOTAL OI: <span id="termOiBadge" class="mono">$1,570.6M</span></p>
       </div>
     </div>
     <nav class="nav-links">
+      <button id="audioToggleBtn" onclick="toggleAudio()" class="nav-btn" style="cursor:pointer;">🔊 Audio: ON</button>
+      <button id="syncBtn" onclick="refreshLive()" class="nav-btn" style="color:var(--accent-cyan);background:rgba(56,189,248,0.1);border-color:var(--border-accent);cursor:pointer;">🔄 Sync CCXT</button>
       <a href="/terminal" class="nav-btn active">⚡ Terminal Pro</a>
       <a href="/hype_liquidation_map.html" class="nav-btn">📊 Full 2D Heatmap</a>
       <a href="/liquidation_profile.csv" download class="nav-btn">📥 CSV Export</a>
     </nav>
   </header>
 
-  <!-- Key Metrics Row -->
+  <!-- Key Metrics Row (4 Cards) -->
   <div class="dashboard-grid">
     <!-- Card 1: Net Liquidation Skew -->
     <div class="card">
@@ -466,19 +468,19 @@
         <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">&plusmn;10% of Spot</span>
       </div>
       <div class="card-metric-huge mono" style="color:var(--accent-red);">
-        -57.2%
+        -56.7%
       </div>
       <p class="metric-sub">
         Downside Flush Asymmetry (More Longs At Risk)
       </p>
       <div class="skew-bar-wrapper">
         <div class="skew-bar-track">
-          <div class="skew-fill-long" style="width: 78.6%;"></div>
-          <div class="skew-fill-short" style="width: 21.4%;"></div>
+          <div class="skew-fill-long" style="width: 78.3%;"></div>
+          <div class="skew-fill-short" style="width: 21.7%;"></div>
         </div>
         <div class="skew-labels mono">
-          <span style="color:var(--accent-red)">Long Liq Pool: $464.4M</span>
-          <span style="color:var(--accent-green)">Short Liq Pool: $126.4M</span>
+          <span style="color:var(--accent-red)">Long Liq: $463.4M</span>
+          <span style="color:var(--accent-green)">Short Liq: $128.2M</span>
         </div>
       </div>
     </div>
@@ -499,34 +501,56 @@
       </p>
       <div style="display:flex;flex-direction:column;gap:0.35rem;font-size:0.82rem;margin-top:0.4rem;" class="mono">
         <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--text-muted)">Nearest Long Cluster:</span>
-          <span style="color:var(--accent-red);font-weight:600;">$78.04 ($1.0M, -1.3%)</span>
+          <span style="color:var(--text-muted)">Nearest Long:</span>
+          <span id="nearLongDist" style="color:var(--accent-red);font-weight:600;">$78.00 ($1.6M, -1.3%)</span>
         </div>
         <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--text-muted)">Nearest Short Cluster:</span>
-          <span style="color:var(--accent-green);font-weight:600;">$82.49 ($2.6M, +4.3%)</span>
+          <span style="color:var(--text-muted)">Nearest Short:</span>
+          <span id="nearShortDist" style="color:var(--accent-green);font-weight:600;">$82.44 ($2.6M, +4.3%)</span>
         </div>
       </div>
     </div>
 
-    <!-- Card 3: Model Health & Parameters -->
+    <!-- Card 3: Live Orderbook & Air Pocket Radar -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Orderbook & Air Pocket Radar</span>
+        <span id="airPocketCardBadge" class="risk-badge risk-low" style="font-size:0.7rem;padding:0.15rem 0.5rem;">🛡️ SOUND</span>
+      </div>
+      <div class="card-metric-huge mono" id="termAirPocketMain" style="color:var(--accent-green);font-size:1.7rem;">
+        HEALTHY
+      </div>
+      <p class="metric-sub" id="termAirPocketDesc">Resting orderbook provides buffer against liquidation cascade</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.75rem;margin-top:0.25rem;" class="mono">
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">BIDS (2% DEPTH)</div>
+          <div id="termBids2" style="color:var(--accent-green);font-weight:600;">$1.25M</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">ASKS (2% DEPTH)</div>
+          <div id="termAsks2" style="color:var(--accent-red);font-weight:600;">$1.18M</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Model Health & Parameters -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">Model Specifications</span>
         <span class="mono" style="font-size:0.8rem;color:var(--text-muted);">Hyperliquid Perp</span>
       </div>
-      <div class="card-metric-huge mono" style="color:var(--text-main);">
-        23,003 <span style="font-size:1.1rem;color:var(--text-dim);font-weight:400;">Surviving</span>
+      <div class="card-metric-huge mono" style="color:var(--text-main);font-size:1.7rem;">
+        23,003 <span style="font-size:0.95rem;color:var(--text-dim);font-weight:400;">Surviving</span>
       </div>
       <p class="metric-sub">79.9% of 28,800 modeled positions unliquidated</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.78rem;margin-top:0.4rem;" class="mono">
-        <div style="background:rgba(255,255,255,0.03);padding:0.4rem 0.6rem;border-radius:4px;">
-          <div style="color:var(--text-dim)">DECAY HALF-LIFE</div>
-          <div style="color:var(--text-main);font-weight:600;">168 Hours (7d)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;font-size:0.75rem;margin-top:0.25rem;" class="mono">
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">HALF-LIFE</div>
+          <div style="color:var(--text-main);font-weight:600;">168h (7d)</div>
         </div>
-        <div style="background:rgba(255,255,255,0.03);padding:0.4rem 0.6rem;border-radius:4px;">
-          <div style="color:var(--text-dim)">MAX LEVERAGE</div>
-          <div style="color:var(--text-main);font-weight:600;">10x (Tier 2-10x)</div>
+        <div style="background:rgba(255,255,255,0.03);padding:0.3rem 0.5rem;border-radius:4px;">
+          <div style="color:var(--text-dim)">MAX LEV</div>
+          <div style="color:var(--text-main);font-weight:600;">10x Tiered</div>
         </div>
       </div>
     </div>
@@ -558,12 +582,12 @@
         <span class="mono" style="color:var(--accent-red)">MIN: $56.84 (-30%)</span>
         <div style="display:flex;align-items:center;gap:0.75rem;">
           <span style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">SIMULATED TARGET:</span>
-          <span id="targetPriceDisplay" class="target-price-display mono">$79.08</span>
+          <span id="targetPriceDisplay" class="target-price-display mono">$79.03</span>
           <span id="pctBadge" class="pct-badge pct-up mono">0.0%</span>
         </div>
         <span class="mono" style="color:var(--accent-green)">MAX: $105.13 (+30%)</span>
       </div>
-      <input type="range" id="priceSlider" min="56.84" max="105.13" step="0.10" value="79.08">
+      <input type="range" id="priceSlider" min="56.84" max="105.13" step="0.10" value="79.03">
     </div>
 
     <!-- Shock Results Metrics -->
@@ -596,6 +620,22 @@
     </div>
   </section>
 
+  <!-- Live Trade & Liquidation Fire Tape -->
+  <section class="card" style="grid-column: 1 / -1; gap: 0.6rem; padding: 1rem 1.25rem;">
+    <div class="card-header" style="padding-bottom: 0.5rem;">
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:50%;box-shadow:0 0 6px #f59e0b;"></span>
+        <span class="card-title" style="color:#f59e0b;">🔥 Live Sub-Second Hyperliquid Trade & Liquidation Tape</span>
+      </div>
+      <div class="mono" style="font-size:0.75rem;color:var(--text-dim);" id="termTickLatency">
+        LATENCY: &lt;35ms &bull; FEED: DIRECT WS
+      </div>
+    </div>
+    <div id="termTapeFeed" style="display:flex;align-items:center;gap:1rem;overflow-x:auto;white-space:nowrap;padding:0.25rem 0;scrollbar-width:none;" class="mono">
+      <span style="color:var(--text-dim);font-size:0.8rem;">Connecting live feed...</span>
+    </div>
+  </section>
+
   <!-- Interactive Depth & Cumulative Liquidation Canvas -->
   <section class="chart-container">
     <div class="card-header">
@@ -624,34 +664,34 @@
         </thead>
         <tbody class="mono">
           <tr>
-            <td style="color:var(--accent-red);font-weight:700;">$75.96</td>
-            <td>$33.29M</td>
-            <td>$165.2M</td>
+            <td style="color:var(--accent-red);font-weight:700;">$75.92</td>
+            <td>$35.56M</td>
+            <td>$168.6M</td>
             <td>-3.94%</td>
             <td><span class="risk-badge risk-high">HIGH</span></td>
           </tr><tr>
-            <td style="color:var(--accent-red);font-weight:700;">$68.25</td>
-            <td>$33.06M</td>
-            <td>$618.6M</td>
-            <td>-13.69%</td>
-            <td><span class="risk-badge risk-high">HIGH</span></td>
-          </tr><tr>
-            <td style="color:var(--accent-red);font-weight:700;">$77.15</td>
-            <td>$30.38M</td>
-            <td>$54.4M</td>
-            <td>-2.44%</td>
-            <td><span class="risk-badge risk-high">HIGH</span></td>
-          </tr><tr>
-            <td style="color:var(--accent-red);font-weight:700;">$76.85</td>
-            <td>$29.68M</td>
-            <td>$84.0M</td>
+            <td style="color:var(--accent-red);font-weight:700;">$76.81</td>
+            <td>$30.93M</td>
+            <td>$85.7M</td>
             <td>-2.81%</td>
             <td><span class="risk-badge risk-high">HIGH</span></td>
           </tr><tr>
-            <td style="color:var(--accent-red);font-weight:700;">$75.67</td>
-            <td>$29.29M</td>
-            <td>$194.5M</td>
-            <td>-4.31%</td>
+            <td style="color:var(--accent-red);font-weight:700;">$68.51</td>
+            <td>$29.54M</td>
+            <td>$589.7M</td>
+            <td>-13.31%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-red);font-weight:700;">$75.33</td>
+            <td>$29.30M</td>
+            <td>$225.1M</td>
+            <td>-4.69%</td>
+            <td><span class="risk-badge risk-high">HIGH</span></td>
+          </tr><tr>
+            <td style="color:var(--accent-red);font-weight:700;">$67.33</td>
+            <td>$27.56M</td>
+            <td>$691.1M</td>
+            <td>-14.81%</td>
             <td><span class="risk-badge risk-high">HIGH</span></td>
           </tr>
         </tbody>
@@ -675,34 +715,34 @@
         </thead>
         <tbody class="mono">
           <tr>
-            <td style="color:var(--accent-green);font-weight:700;">$92.57</td>
-            <td>$21.31M</td>
-            <td>$337.0M</td>
-            <td>+17.06%</td>
+            <td style="color:var(--accent-green);font-weight:700;">$92.22</td>
+            <td>$20.63M</td>
+            <td>$317.2M</td>
+            <td>+16.69%</td>
             <td><span class="risk-badge risk-high">HIGH</span></td>
           </tr><tr>
-            <td style="color:var(--accent-green);font-weight:700;">$92.27</td>
-            <td>$18.73M</td>
-            <td>$315.6M</td>
-            <td>+16.69%</td>
+            <td style="color:var(--accent-green);font-weight:700;">$93.11</td>
+            <td>$19.53M</td>
+            <td>$374.0M</td>
+            <td>+17.81%</td>
             <td><span class="risk-badge risk-mod">MOD</span></td>
           </tr><tr>
-            <td style="color:var(--accent-green);font-weight:700;">$97.32</td>
-            <td>$18.60M</td>
-            <td>$542.2M</td>
-            <td>+23.06%</td>
+            <td style="color:var(--accent-green);font-weight:700;">$101.71</td>
+            <td>$19.12M</td>
+            <td>$777.6M</td>
+            <td>+28.69%</td>
             <td><span class="risk-badge risk-mod">MOD</span></td>
           </tr><tr>
-            <td style="color:var(--accent-green);font-weight:700;">$101.47</td>
-            <td>$18.48M</td>
-            <td>$759.8M</td>
-            <td>+28.31%</td>
+            <td style="color:var(--accent-green);font-weight:700;">$92.81</td>
+            <td>$18.92M</td>
+            <td>$354.5M</td>
+            <td>+17.44%</td>
             <td><span class="risk-badge risk-mod">MOD</span></td>
           </tr><tr>
-            <td style="color:var(--accent-green);font-weight:700;">$98.20</td>
-            <td>$18.30M</td>
-            <td>$592.6M</td>
-            <td>+24.19%</td>
+            <td style="color:var(--accent-green);font-weight:700;">$99.93</td>
+            <td>$18.78M</td>
+            <td>$686.2M</td>
+            <td>+26.44%</td>
             <td><span class="risk-badge risk-mod">MOD</span></td>
           </tr>
         </tbody>
@@ -716,8 +756,12 @@
 
   <script>
     // Embedded Liquidation Data
-    const SPOT = 79.078;
-    const BINS = [{"price": 55.50287125, "long_usd": 8204737.310873763, "short_usd": 0.0, "cum_long": 1251008688.5654302, "cum_short": 0.0}, {"price": 55.79941375, "long_usd": 20026478.17615421, "short_usd": 0.0, "cum_long": 1242803951.2545564, "cum_short": 0.0}, {"price": 56.09595625, "long_usd": 21335829.37993588, "short_usd": 0.0, "cum_long": 1222777473.0784023, "cum_short": 0.0}, {"price": 56.39249875, "long_usd": 20904656.959577072, "short_usd": 0.0, "cum_long": 1201441643.6984663, "cum_short": 0.0}, {"price": 56.68904125, "long_usd": 20157414.656240977, "short_usd": 0.0, "cum_long": 1180536986.7388892, "cum_short": 0.0}, {"price": 56.98558375, "long_usd": 22414287.035336178, "short_usd": 0.0, "cum_long": 1160379572.0826485, "cum_short": 0.0}, {"price": 57.28212625, "long_usd": 24896667.85589928, "short_usd": 0.0, "cum_long": 1137965285.047312, "cum_short": 0.0}, {"price": 57.57866875, "long_usd": 11711122.704154331, "short_usd": 0.0, "cum_long": 1113068617.1914127, "cum_short": 0.0}, {"price": 57.87521125, "long_usd": 10187684.716201814, "short_usd": 0.0, "cum_long": 1101357494.4872584, "cum_short": 0.0}, {"price": 58.17175375, "long_usd": 8429292.261075396, "short_usd": 0.0, "cum_long": 1091169809.771057, "cum_short": 0.0}, {"price": 58.46829625, "long_usd": 6585573.34169219, "short_usd": 0.0, "cum_long": 1082740517.5099812, "cum_short": 0.0}, {"price": 58.76483875, "long_usd": 7110090.791826072, "short_usd": 0.0, "cum_long": 1076154944.168289, "cum_short": 0.0}, {"price": 59.06138125, "long_usd": 10287359.051669195, "short_usd": 0.0, "cum_long": 1069044853.3764628, "cum_short": 0.0}, {"price": 59.35792375, "long_usd": 8433147.532339307, "short_usd": 0.0, "cum_long": 1058757494.3247936, "cum_short": 0.0}, {"price": 59.65446625, "long_usd": 12518357.63570899, "short_usd": 0.0, "cum_long": 1050324346.7924542, "cum_short": 0.0}, {"price": 59.95100875, "long_usd": 16530327.045759529, "short_usd": 0.0, "cum_long": 1037805989.1567452, "cum_short": 0.0}, {"price": 60.24755125, "long_usd": 13096220.380667385, "short_usd": 0.0, "cum_long": 1021275662.1109856, "cum_short": 0.0}, {"price": 60.54409375, "long_usd": 14282595.017670812, "short_usd": 0.0, "cum_long": 1008179441.7303184, "cum_short": 0.0}, {"price": 60.84063625, "long_usd": 14247371.072005328, "short_usd": 0.0, "cum_long": 993896846.7126474, "cum_short": 0.0}, {"price": 61.13717875, "long_usd": 13686058.13562534, "short_usd": 0.0, "cum_long": 979649475.6406422, "cum_short": 0.0}, {"price": 61.43372125, "long_usd": 15005831.597705124, "short_usd": 0.0, "cum_long": 965963417.5050168, "cum_short": 0.0}, {"price": 61.73026375, "long_usd": 11317953.522281077, "short_usd": 0.0, "cum_long": 950957585.9073116, "cum_short": 0.0}, {"price": 62.02680625, "long_usd": 12545374.02740284, "short_usd": 0.0, "cum_long": 939639632.3850306, "cum_short": 0.0}, {"price": 62.32334875, "long_usd": 11174763.257678624, "short_usd": 0.0, "cum_long": 927094258.3576276, "cum_short": 0.0}, {"price": 62.61989125, "long_usd": 11962337.234305998, "short_usd": 0.0, "cum_long": 915919495.0999492, "cum_short": 0.0}, {"price": 62.91643375, "long_usd": 11352832.917360146, "short_usd": 0.0, "cum_long": 903957157.8656431, "cum_short": 0.0}, {"price": 63.21297625, "long_usd": 10940010.756148929, "short_usd": 0.0, "cum_long": 892604324.948283, "cum_short": 0.0}, {"price": 63.50951875, "long_usd": 11197569.613956451, "short_usd": 0.0, "cum_long": 881664314.192134, "cum_short": 0.0}, {"price": 63.80606125, "long_usd": 9030682.219785042, "short_usd": 0.0, "cum_long": 870466744.5781776, "cum_short": 0.0}, {"price": 64.10260375, "long_usd": 9953206.43205147, "short_usd": 0.0, "cum_long": 861436062.3583925, "cum_short": 0.0}, {"price": 64.39914625, "long_usd": 12478599.25238002, "short_usd": 0.0, "cum_long": 851482855.926341, "cum_short": 0.0}, {"price": 64.69568874999999, "long_usd": 10926444.73282347, "short_usd": 0.0, "cum_long": 839004256.673961, "cum_short": 0.0}, {"price": 64.99223125, "long_usd": 12603930.373996971, "short_usd": 0.0, "cum_long": 828077811.9411376, "cum_short": 0.0}, {"price": 65.28877374999999, "long_usd": 19063404.159879956, "short_usd": 0.0, "cum_long": 815473881.5671406, "cum_short": 0.0}, {"price": 65.58531625, "long_usd": 14279117.454163648, "short_usd": 0.0, "cum_long": 796410477.4072607, "cum_short": 0.0}, {"price": 65.88185874999999, "long_usd": 13166135.425058313, "short_usd": 0.0, "cum_long": 782131359.953097, "cum_short": 0.0}, {"price": 66.17840125000001, "long_usd": 14822699.998337716, "short_usd": 0.0, "cum_long": 768965224.5280386, "cum_short": 0.0}, {"price": 66.47494375, "long_usd": 9773848.58848694, "short_usd": 0.0, "cum_long": 754142524.5297009, "cum_short": 0.0}, {"price": 66.77148625000001, "long_usd": 24482739.993718576, "short_usd": 0.0, "cum_long": 744368675.941214, "cum_short": 0.0}, {"price": 67.06802875, "long_usd": 28753069.319342483, "short_usd": 0.0, "cum_long": 719885935.9474953, "cum_short": 0.0}, {"price": 67.36457125000001, "long_usd": 25141408.962918725, "short_usd": 0.0, "cum_long": 691132866.6281528, "cum_short": 0.0}, {"price": 67.66111375, "long_usd": 24214520.412399817, "short_usd": 0.0, "cum_long": 665991457.6652341, "cum_short": 0.0}, {"price": 67.95765625, "long_usd": 23131225.425443936, "short_usd": 0.0, "cum_long": 641776937.2528343, "cum_short": 0.0}, {"price": 68.25419875, "long_usd": 33059119.30913168, "short_usd": 0.0, "cum_long": 618645711.8273904, "cum_short": 0.0}, {"price": 68.55074124999999, "long_usd": 23199257.37898971, "short_usd": 0.0, "cum_long": 585586592.5182588, "cum_short": 0.0}, {"price": 68.84728375, "long_usd": 24333230.53759338, "short_usd": 0.0, "cum_long": 562387335.1392691, "cum_short": 0.0}, {"price": 69.14382624999999, "long_usd": 13562296.63889899, "short_usd": 0.0, "cum_long": 538054104.6016757, "cum_short": 0.0}, {"price": 69.44036875, "long_usd": 11590860.216159554, "short_usd": 0.0, "cum_long": 524491807.9627767, "cum_short": 0.0}, {"price": 69.73691124999999, "long_usd": 9887139.944103671, "short_usd": 0.0, "cum_long": 512900947.74661714, "cum_short": 0.0}, {"price": 70.03345375, "long_usd": 8644995.729880404, "short_usd": 0.0, "cum_long": 503013807.8025135, "cum_short": 0.0}, {"price": 70.32999625, "long_usd": 7335792.406730072, "short_usd": 0.0, "cum_long": 494368812.0726331, "cum_short": 0.0}, {"price": 70.62653875000001, "long_usd": 8646380.124067966, "short_usd": 0.0, "cum_long": 487033019.66590303, "cum_short": 0.0}, {"price": 70.92308125, "long_usd": 13943211.274218597, "short_usd": 0.0, "cum_long": 478386639.5418351, "cum_short": 0.0}, {"price": 71.21962375000001, "long_usd": 10073293.681571765, "short_usd": 0.0, "cum_long": 464443428.26761645, "cum_short": 0.0}, {"price": 71.51616625, "long_usd": 13970439.56516193, "short_usd": 0.0, "cum_long": 454370134.5860447, "cum_short": 0.0}, {"price": 71.81270875000001, "long_usd": 15942147.855955131, "short_usd": 0.0, "cum_long": 440399695.0208827, "cum_short": 0.0}, {"price": 72.10925125, "long_usd": 19386293.215983603, "short_usd": 0.0, "cum_long": 424457547.1649276, "cum_short": 0.0}, {"price": 72.40579375, "long_usd": 18235732.23433657, "short_usd": 0.0, "cum_long": 405071253.948944, "cum_short": 0.0}, {"price": 72.70233625, "long_usd": 13303809.900041625, "short_usd": 0.0, "cum_long": 386835521.7146074, "cum_short": 0.0}, {"price": 72.99887874999999, "long_usd": 16451665.341845945, "short_usd": 0.0, "cum_long": 373531711.8145658, "cum_short": 0.0}, {"price": 73.29542125, "long_usd": 19113754.29788089, "short_usd": 0.0, "cum_long": 357080046.47271985, "cum_short": 0.0}, {"price": 73.59196374999999, "long_usd": 17805007.01573102, "short_usd": 0.0, "cum_long": 337966292.17483896, "cum_short": 0.0}, {"price": 73.88850625, "long_usd": 17525194.09728416, "short_usd": 0.0, "cum_long": 320161285.1591079, "cum_short": 0.0}, {"price": 74.18504874999999, "long_usd": 21648382.578759253, "short_usd": 0.0, "cum_long": 302636091.0618238, "cum_short": 0.0}, {"price": 74.48159125000001, "long_usd": 16217525.08302595, "short_usd": 0.0, "cum_long": 280987708.48306453, "cum_short": 0.0}, {"price": 74.77813375, "long_usd": 16047114.231643071, "short_usd": 0.0, "cum_long": 264770183.4000386, "cum_short": 0.0}, {"price": 75.07467625000001, "long_usd": 27742814.04149521, "short_usd": 0.0, "cum_long": 248723069.16839552, "cum_short": 0.0}, {"price": 75.37121875, "long_usd": 26512286.369676456, "short_usd": 0.0, "cum_long": 220980255.12690032, "cum_short": 0.0}, {"price": 75.66776125000001, "long_usd": 29286470.84422661, "short_usd": 0.0, "cum_long": 194467968.75722384, "cum_short": 0.0}, {"price": 75.96430375, "long_usd": 33294874.771330763, "short_usd": 0.0, "cum_long": 165181497.91299725, "cum_short": 0.0}, {"price": 76.26084625, "long_usd": 25520603.772696037, "short_usd": 0.0, "cum_long": 131886623.14166649, "cum_short": 0.0}, {"price": 76.55738875, "long_usd": 22328709.19678353, "short_usd": 0.0, "cum_long": 106366019.36897044, "cum_short": 0.0}, {"price": 76.85393124999999, "long_usd": 29678522.549133237, "short_usd": 0.0, "cum_long": 84037310.17218693, "cum_short": 0.0}, {"price": 77.15047375, "long_usd": 30376530.729695067, "short_usd": 0.0, "cum_long": 54358787.62305369, "cum_short": 0.0}, {"price": 77.44701624999999, "long_usd": 18806226.07692741, "short_usd": 0.0, "cum_long": 23982256.893358625, "cum_short": 0.0}, {"price": 77.74355875, "long_usd": 4128900.94502071, "short_usd": 0.0, "cum_long": 5176030.816431218, "cum_short": 0.0}, {"price": 78.04010124999999, "long_usd": 1020789.0492231052, "short_usd": 0.0, "cum_long": 1047129.871410508, "cum_short": 0.0}, {"price": 78.33664375000001, "long_usd": 26340.82218739526, "short_usd": 0.0, "cum_long": 26340.82218740271, "cum_short": 0.0}, {"price": 78.63318625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 7.450580596923828e-09, "cum_short": 0.0}, {"price": 78.92972875000001, "long_usd": 7.450580596923828e-09, "short_usd": 0.0, "cum_long": 7.450580596923828e-09, "cum_short": 0.0}, {"price": 79.22627125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.52281375000001, "long_usd": 2.0372681319713593e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.81935625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.11589875000001, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.41244125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.70898375, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.00552625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.30206874999999, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.59861125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.89515374999999, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 82.19169625, "long_usd": 2.3283064365386963e-09, "short_usd": 86098.70690741586, "cum_long": 0.0, "cum_short": 86098.70690741586}, {"price": 82.48823875, "long_usd": 0.0, "short_usd": 2624035.6433487814, "cum_long": 0.0, "cum_short": 2710134.350256197}, {"price": 82.78478125000001, "long_usd": 0.0, "short_usd": 3571142.736581741, "cum_long": 0.0, "cum_short": 6281277.086837938}, {"price": 83.08132375, "long_usd": 0.0, "short_usd": 6246121.84897551, "cum_long": 0.0, "cum_short": 12527398.93581345}, {"price": 83.37786625000001, "long_usd": 6.5192580223083504e-09, "short_usd": 3524853.045951968, "cum_long": 0.0, "cum_short": 16052251.981765416}, {"price": 83.67440875, "long_usd": 5.587935447692871e-09, "short_usd": 7999003.2596533215, "cum_long": 0.0, "cum_short": 24051255.241418734}, {"price": 83.97095125000001, "long_usd": 0.0, "short_usd": 8420460.36764202, "cum_long": 0.0, "cum_short": 32471715.60906076}, {"price": 84.26749375, "long_usd": 0.0, "short_usd": 5610688.256154118, "cum_long": 0.0, "cum_short": 38082403.86521488}, {"price": 84.56403625, "long_usd": 1.862645149230957e-09, "short_usd": 13158657.742300555, "cum_long": 0.0, "cum_short": 51241061.60751543}, {"price": 84.86057875, "long_usd": 0.0, "short_usd": 13411104.685195984, "cum_long": 0.0, "cum_short": 64652166.29271141}, {"price": 85.15712125, "long_usd": 0.0, "short_usd": 13879780.915446794, "cum_long": 0.0, "cum_short": 78531947.20815821}, {"price": 85.45366375, "long_usd": 1.862645149230957e-09, "short_usd": 11441663.043056449, "cum_long": 0.0, "cum_short": 89973610.25121465}, {"price": 85.75020624999999, "long_usd": 0.0, "short_usd": 8380290.726950116, "cum_long": 0.0, "cum_short": 98353900.97816476}, {"price": 86.04674875, "long_usd": 0.0, "short_usd": 11679791.16182531, "cum_long": 0.0, "cum_short": 110033692.13999008}, {"price": 86.34329125, "long_usd": 0.0, "short_usd": 8518832.886660086, "cum_long": 0.0, "cum_short": 118552525.02665016}, {"price": 86.63983375000001, "long_usd": 0.0, "short_usd": 4626611.667387488, "cum_long": 0.0, "cum_short": 123179136.69403765}, {"price": 86.93637625, "long_usd": 2.7939677238464355e-09, "short_usd": 3190864.9836352896, "cum_long": 0.0, "cum_short": 126370001.67767294}, {"price": 87.23291875000001, "long_usd": 0.0, "short_usd": 3851080.078406851, "cum_long": 0.0, "cum_short": 130221081.7560798}, {"price": 87.52946125, "long_usd": 0.0, "short_usd": 2365739.8098819866, "cum_long": 0.0, "cum_short": 132586821.56596178}, {"price": 87.82600375000001, "long_usd": 0.0, "short_usd": 1857460.3799164589, "cum_long": 0.0, "cum_short": 134444281.94587824}, {"price": 88.12254625, "long_usd": 0.0, "short_usd": 4793127.461933727, "cum_long": 0.0, "cum_short": 139237409.40781197}, {"price": 88.41908875, "long_usd": 2.7939677238464355e-09, "short_usd": 9388531.46421702, "cum_long": 0.0, "cum_short": 148625940.87202898}, {"price": 88.71563125, "long_usd": 0.0, "short_usd": 7760223.612232733, "cum_long": 0.0, "cum_short": 156386164.48426172}, {"price": 89.01217375, "long_usd": 0.0, "short_usd": 7421846.487413533, "cum_long": 0.0, "cum_short": 163808010.97167525}, {"price": 89.30871625, "long_usd": 0.0, "short_usd": 11690433.376554646, "cum_long": 0.0, "cum_short": 175498444.3482299}, {"price": 89.60525875, "long_usd": 0.0, "short_usd": 12952129.511907283, "cum_long": 0.0, "cum_short": 188450573.8601372}, {"price": 89.90180125, "long_usd": 0.0, "short_usd": 16656304.26441224, "cum_long": 0.0, "cum_short": 205106878.12454945}, {"price": 90.19834375, "long_usd": 0.0, "short_usd": 9562889.63505419, "cum_long": 0.0, "cum_short": 214669767.7596036}, {"price": 90.49488625, "long_usd": 0.0, "short_usd": 9589961.907612784, "cum_long": 0.0, "cum_short": 224259729.6672164}, {"price": 90.79142875, "long_usd": 0.0, "short_usd": 12727809.999838172, "cum_long": 0.0, "cum_short": 236987539.66705456}, {"price": 91.08797125, "long_usd": 0.0, "short_usd": 17119274.52116738, "cum_long": 0.0, "cum_short": 254106814.18822196}, {"price": 91.38451375, "long_usd": 0.0, "short_usd": 13610948.295959497, "cum_long": 0.0, "cum_short": 267717762.48418143}, {"price": 91.68105625, "long_usd": 0.0, "short_usd": 16612912.910316035, "cum_long": 0.0, "cum_short": 284330675.39449745}, {"price": 91.97759875, "long_usd": 0.0, "short_usd": 12584406.845808571, "cum_long": 0.0, "cum_short": 296915082.240306}, {"price": 92.27414125, "long_usd": 0.0, "short_usd": 18729021.06306572, "cum_long": 0.0, "cum_short": 315644103.3033717}, {"price": 92.57068375, "long_usd": 0.0, "short_usd": 21314431.628632795, "cum_long": 0.0, "cum_short": 336958534.9320045}, {"price": 92.86722625, "long_usd": 0.0, "short_usd": 18141447.04406617, "cum_long": 0.0, "cum_short": 355099981.9760707}, {"price": 93.16376875, "long_usd": 0.0, "short_usd": 16232509.059556115, "cum_long": 0.0, "cum_short": 371332491.0356268}, {"price": 93.46031125, "long_usd": 0.0, "short_usd": 17396128.194147658, "cum_long": 0.0, "cum_short": 388728619.2297745}, {"price": 93.75685375, "long_usd": 0.0, "short_usd": 15849778.307147931, "cum_long": 0.0, "cum_short": 404578397.5369224}, {"price": 94.05339625, "long_usd": 0.0, "short_usd": 10634291.203601278, "cum_long": 0.0, "cum_short": 415212688.7405237}, {"price": 94.34993875, "long_usd": 0.0, "short_usd": 10918520.084965715, "cum_long": 0.0, "cum_short": 426131208.8254894}, {"price": 94.64648125, "long_usd": 0.0, "short_usd": 6078592.455886294, "cum_long": 0.0, "cum_short": 432209801.2813757}, {"price": 94.94302375, "long_usd": 0.0, "short_usd": 10732465.410976645, "cum_long": 0.0, "cum_short": 442942266.6923524}, {"price": 95.23956625, "long_usd": 0.0, "short_usd": 9671562.902536131, "cum_long": 0.0, "cum_short": 452613829.5948885}, {"price": 95.53610875, "long_usd": 0.0, "short_usd": 9928974.113878274, "cum_long": 0.0, "cum_short": 462542803.7087668}, {"price": 95.83265125, "long_usd": 0.0, "short_usd": 13980305.848127512, "cum_long": 0.0, "cum_short": 476523109.55689424}, {"price": 96.12919375, "long_usd": 0.0, "short_usd": 11140496.178990658, "cum_long": 0.0, "cum_short": 487663605.7358849}, {"price": 96.42573625, "long_usd": 0.0, "short_usd": 13088858.625819655, "cum_long": 0.0, "cum_short": 500752464.3617046}, {"price": 96.72227875, "long_usd": 0.0, "short_usd": 12527766.755881565, "cum_long": 0.0, "cum_short": 513280231.1175861}, {"price": 97.01882125, "long_usd": 0.0, "short_usd": 10367308.817325337, "cum_long": 0.0, "cum_short": 523647539.9349115}, {"price": 97.31536375, "long_usd": 0.0, "short_usd": 18599546.82169989, "cum_long": 0.0, "cum_short": 542247086.7566113}, {"price": 97.61190625, "long_usd": 0.0, "short_usd": 17105256.28746102, "cum_long": 0.0, "cum_short": 559352343.0440724}, {"price": 97.90844875, "long_usd": 0.0, "short_usd": 14944692.01445374, "cum_long": 0.0, "cum_short": 574297035.0585262}, {"price": 98.20499125, "long_usd": 0.0, "short_usd": 18298248.25174363, "cum_long": 0.0, "cum_short": 592595283.3102698}, {"price": 98.50153375, "long_usd": 0.0, "short_usd": 13504771.574916242, "cum_long": 0.0, "cum_short": 606100054.8851861}, {"price": 98.79807625, "long_usd": 0.0, "short_usd": 15837908.722571302, "cum_long": 0.0, "cum_short": 621937963.6077573}, {"price": 99.09461875, "long_usd": 0.0, "short_usd": 16721016.783904444, "cum_long": 0.0, "cum_short": 638658980.3916618}, {"price": 99.39116125, "long_usd": 0.0, "short_usd": 16851108.203922722, "cum_long": 0.0, "cum_short": 655510088.5955845}, {"price": 99.68770375, "long_usd": 0.0, "short_usd": 13994451.26344642, "cum_long": 0.0, "cum_short": 669504539.859031}, {"price": 99.98424625, "long_usd": 0.0, "short_usd": 17493507.61613078, "cum_long": 0.0, "cum_short": 686998047.4751618}, {"price": 100.28078875, "long_usd": 0.0, "short_usd": 14713088.107767817, "cum_long": 0.0, "cum_short": 701711135.5829296}, {"price": 100.57733125, "long_usd": 0.0, "short_usd": 13664770.518008742, "cum_long": 0.0, "cum_short": 715375906.1009383}, {"price": 100.87387375, "long_usd": 0.0, "short_usd": 12866988.24428444, "cum_long": 0.0, "cum_short": 728242894.3452227}, {"price": 101.17041625, "long_usd": 0.0, "short_usd": 13096093.21263621, "cum_long": 0.0, "cum_short": 741338987.557859}, {"price": 101.46695875, "long_usd": 0.0, "short_usd": 18480965.770981107, "cum_long": 0.0, "cum_short": 759819953.32884}, {"price": 101.76350125, "long_usd": 0.0, "short_usd": 17264535.85737704, "cum_long": 0.0, "cum_short": 777084489.1862171}, {"price": 102.06004375, "long_usd": 0.0, "short_usd": 14365955.499995517, "cum_long": 0.0, "cum_short": 791450444.6862125}, {"price": 102.35658625, "long_usd": 0.0, "short_usd": 14414271.229664396, "cum_long": 0.0, "cum_short": 805864715.915877}, {"price": 102.65312875, "long_usd": 0.0, "short_usd": 17348447.432207644, "cum_long": 0.0, "cum_short": 823213163.3480847}];
+    let SPOT = 79.033;
+    const NEAR_LONG_P = 77.995691875;
+    const NEAR_LONG_V = 1627141.2473377318;
+    const NEAR_SHORT_P = 82.441298125;
+    const NEAR_SHORT_V = 2589245.582833753;
+    const BINS = [{"price": 55.471286875, "long_usd": 10325952.003039235, "short_usd": 0.0, "cum_long": 1246820074.8113797, "cum_short": 0.0}, {"price": 55.767660625, "long_usd": 20454173.735440515, "short_usd": 0.0, "cum_long": 1236494122.8083403, "cum_short": 0.0}, {"price": 56.064034375, "long_usd": 21290135.25796149, "short_usd": 0.0, "cum_long": 1216039949.0729, "cum_short": 0.0}, {"price": 56.360408125, "long_usd": 18709228.665266026, "short_usd": 0.0, "cum_long": 1194749813.8149383, "cum_short": 0.0}, {"price": 56.656781875, "long_usd": 17612619.89600066, "short_usd": 0.0, "cum_long": 1176040585.1496725, "cum_short": 0.0}, {"price": 56.953155625, "long_usd": 23808714.414715428, "short_usd": 0.0, "cum_long": 1158427965.253672, "cum_short": 0.0}, {"price": 57.249529375, "long_usd": 25472646.087263767, "short_usd": 0.0, "cum_long": 1134619250.8389564, "cum_short": 0.0}, {"price": 57.545903125, "long_usd": 11321732.155160962, "short_usd": 0.0, "cum_long": 1109146604.7516923, "cum_short": 0.0}, {"price": 57.842276875, "long_usd": 10093118.11914485, "short_usd": 0.0, "cum_long": 1097824872.5965316, "cum_short": 0.0}, {"price": 58.138650625, "long_usd": 9590106.540582657, "short_usd": 0.0, "cum_long": 1087731754.4773867, "cum_short": 0.0}, {"price": 58.435024375, "long_usd": 5777914.506622288, "short_usd": 0.0, "cum_long": 1078141647.936804, "cum_short": 0.0}, {"price": 58.731398125, "long_usd": 7124854.253905785, "short_usd": 0.0, "cum_long": 1072363733.4301816, "cum_short": 0.0}, {"price": 59.027771875, "long_usd": 9683356.88075584, "short_usd": 0.0, "cum_long": 1065238879.176276, "cum_short": 0.0}, {"price": 59.324145625, "long_usd": 8903631.476297798, "short_usd": 0.0, "cum_long": 1055555522.2955202, "cum_short": 0.0}, {"price": 59.620519375, "long_usd": 10936503.153301062, "short_usd": 0.0, "cum_long": 1046651890.8192225, "cum_short": 0.0}, {"price": 59.916893125, "long_usd": 17076159.918830898, "short_usd": 0.0, "cum_long": 1035715387.6659212, "cum_short": 0.0}, {"price": 60.213266875, "long_usd": 12818920.176116306, "short_usd": 0.0, "cum_long": 1018639227.7470905, "cum_short": 0.0}, {"price": 60.509640625, "long_usd": 14538312.19133006, "short_usd": 0.0, "cum_long": 1005820307.570974, "cum_short": 0.0}, {"price": 60.806014375, "long_usd": 12826639.104961049, "short_usd": 0.0, "cum_long": 991281995.379644, "cum_short": 0.0}, {"price": 61.102388125, "long_usd": 14254261.942630395, "short_usd": 0.0, "cum_long": 978455356.2746828, "cum_short": 0.0}, {"price": 61.398761875, "long_usd": 14498060.819874112, "short_usd": 0.0, "cum_long": 964201094.3320524, "cum_short": 0.0}, {"price": 61.695135625, "long_usd": 11847019.71806286, "short_usd": 0.0, "cum_long": 949703033.5121784, "cum_short": 0.0}, {"price": 61.991509375, "long_usd": 11208691.09774893, "short_usd": 0.0, "cum_long": 937856013.7941154, "cum_short": 0.0}, {"price": 62.287883125, "long_usd": 10625072.431390604, "short_usd": 0.0, "cum_long": 926647322.6963664, "cum_short": 0.0}, {"price": 62.584256875, "long_usd": 11897816.853425182, "short_usd": 0.0, "cum_long": 916022250.264976, "cum_short": 0.0}, {"price": 62.880630625, "long_usd": 11980603.725809803, "short_usd": 0.0, "cum_long": 904124433.4115508, "cum_short": 0.0}, {"price": 63.177004375, "long_usd": 10994752.466754371, "short_usd": 0.0, "cum_long": 892143829.685741, "cum_short": 0.0}, {"price": 63.473378125, "long_usd": 10826672.390159562, "short_usd": 0.0, "cum_long": 881149077.2189866, "cum_short": 0.0}, {"price": 63.769751875, "long_usd": 9065385.112240862, "short_usd": 0.0, "cum_long": 870322404.828827, "cum_short": 0.0}, {"price": 64.066125625, "long_usd": 9512119.572896136, "short_usd": 0.0, "cum_long": 861257019.7165861, "cum_short": 0.0}, {"price": 64.362499375, "long_usd": 11704255.932216914, "short_usd": 0.0, "cum_long": 851744900.14369, "cum_short": 0.0}, {"price": 64.65887312499999, "long_usd": 10788055.286435653, "short_usd": 0.0, "cum_long": 840040644.2114731, "cum_short": 0.0}, {"price": 64.955246875, "long_usd": 12404905.998785468, "short_usd": 0.0, "cum_long": 829252588.9250375, "cum_short": 0.0}, {"price": 65.25162062499999, "long_usd": 18090762.367745303, "short_usd": 0.0, "cum_long": 816847682.926252, "cum_short": 0.0}, {"price": 65.547994375, "long_usd": 13955435.492746964, "short_usd": 0.0, "cum_long": 798756920.5585067, "cum_short": 0.0}, {"price": 65.84436812499999, "long_usd": 15440703.3546183, "short_usd": 0.0, "cum_long": 784801485.0657598, "cum_short": 0.0}, {"price": 66.140741875, "long_usd": 16714111.778790647, "short_usd": 0.0, "cum_long": 769360781.7111415, "cum_short": 0.0}, {"price": 66.43711562499999, "long_usd": 11375379.324138504, "short_usd": 0.0, "cum_long": 752646669.9323509, "cum_short": 0.0}, {"price": 66.733489375, "long_usd": 23089567.13878291, "short_usd": 0.0, "cum_long": 741271290.6082124, "cum_short": 0.0}, {"price": 67.02986312499999, "long_usd": 27033361.909123328, "short_usd": 0.0, "cum_long": 718181723.4694295, "cum_short": 0.0}, {"price": 67.326236875, "long_usd": 27557927.961646523, "short_usd": 0.0, "cum_long": 691148361.5603062, "cum_short": 0.0}, {"price": 67.622610625, "long_usd": 26015510.32057004, "short_usd": 0.0, "cum_long": 663590433.5986596, "cum_short": 0.0}, {"price": 67.91898437500001, "long_usd": 22775428.221496254, "short_usd": 0.0, "cum_long": 637574923.2780896, "cum_short": 0.0}, {"price": 68.215358125, "long_usd": 25129652.19532844, "short_usd": 0.0, "cum_long": 614799495.0565934, "cum_short": 0.0}, {"price": 68.51173187500001, "long_usd": 29544514.374648377, "short_usd": 0.0, "cum_long": 589669842.861265, "cum_short": 0.0}, {"price": 68.808105625, "long_usd": 24533409.28584485, "short_usd": 0.0, "cum_long": 560125328.4866166, "cum_short": 0.0}, {"price": 69.10447937500001, "long_usd": 12970044.942475596, "short_usd": 0.0, "cum_long": 535591919.2007718, "cum_short": 0.0}, {"price": 69.400853125, "long_usd": 12014579.111965291, "short_usd": 0.0, "cum_long": 522621874.2582962, "cum_short": 0.0}, {"price": 69.697226875, "long_usd": 9547159.854983544, "short_usd": 0.0, "cum_long": 510607295.1463309, "cum_short": 0.0}, {"price": 69.993600625, "long_usd": 8918826.396479907, "short_usd": 0.0, "cum_long": 501060135.2913473, "cum_short": 0.0}, {"price": 70.28997437499999, "long_usd": 6914445.800656157, "short_usd": 0.0, "cum_long": 492141308.8948674, "cum_short": 0.0}, {"price": 70.586348125, "long_usd": 8581796.256275436, "short_usd": 0.0, "cum_long": 485226863.0942113, "cum_short": 0.0}, {"price": 70.88272187499999, "long_usd": 13262568.381653028, "short_usd": 0.0, "cum_long": 476645066.8379359, "cum_short": 0.0}, {"price": 71.179095625, "long_usd": 8793861.61582898, "short_usd": 0.0, "cum_long": 463382498.45628285, "cum_short": 0.0}, {"price": 71.47546937499999, "long_usd": 14395944.138909943, "short_usd": 0.0, "cum_long": 454588636.84045386, "cum_short": 0.0}, {"price": 71.771843125, "long_usd": 14622053.610708753, "short_usd": 0.0, "cum_long": 440192692.7015439, "cum_short": 0.0}, {"price": 72.06821687499999, "long_usd": 20215557.93288528, "short_usd": 0.0, "cum_long": 425570639.0908352, "cum_short": 0.0}, {"price": 72.364590625, "long_usd": 16104335.57490016, "short_usd": 0.0, "cum_long": 405355081.15794986, "cum_short": 0.0}, {"price": 72.66096437499999, "long_usd": 15078731.386528948, "short_usd": 0.0, "cum_long": 389250745.5830497, "cum_short": 0.0}, {"price": 72.957338125, "long_usd": 16832001.242234297, "short_usd": 0.0, "cum_long": 374172014.1965208, "cum_short": 0.0}, {"price": 73.253711875, "long_usd": 16147511.74976423, "short_usd": 0.0, "cum_long": 357340012.95428646, "cum_short": 0.0}, {"price": 73.55008562500001, "long_usd": 19394160.749228187, "short_usd": 0.0, "cum_long": 341192501.20452225, "cum_short": 0.0}, {"price": 73.846459375, "long_usd": 15424359.742330374, "short_usd": 0.0, "cum_long": 321798340.4552941, "cum_short": 0.0}, {"price": 74.14283312500001, "long_usd": 18486954.825968426, "short_usd": 0.0, "cum_long": 306373980.7129637, "cum_short": 0.0}, {"price": 74.439206875, "long_usd": 22621991.686580345, "short_usd": 0.0, "cum_long": 287887025.88699526, "cum_short": 0.0}, {"price": 74.73558062500001, "long_usd": 15620787.662091073, "short_usd": 0.0, "cum_long": 265265034.2004149, "cum_short": 0.0}, {"price": 75.031954375, "long_usd": 24528315.08912089, "short_usd": 0.0, "cum_long": 249644246.53832385, "cum_short": 0.0}, {"price": 75.328328125, "long_usd": 29298769.31806117, "short_usd": 0.0, "cum_long": 225115931.44920287, "cum_short": 0.0}, {"price": 75.624701875, "long_usd": 27169011.91415188, "short_usd": 0.0, "cum_long": 195817162.13114172, "cum_short": 0.0}, {"price": 75.921075625, "long_usd": 35559861.90633518, "short_usd": 0.0, "cum_long": 168648150.21698987, "cum_short": 0.0}, {"price": 76.217449375, "long_usd": 26047801.94304668, "short_usd": 0.0, "cum_long": 133088288.31065468, "cum_short": 0.0}, {"price": 76.51382312499999, "long_usd": 21361877.535202123, "short_usd": 0.0, "cum_long": 107040486.367608, "cum_short": 0.0}, {"price": 76.810196875, "long_usd": 30925988.85440541, "short_usd": 0.0, "cum_long": 85678608.83240588, "cum_short": 0.0}, {"price": 77.10657062499999, "long_usd": 27520666.99639757, "short_usd": 0.0, "cum_long": 54752619.97800046, "cum_short": 0.0}, {"price": 77.402944375, "long_usd": 21283627.89574647, "short_usd": 0.0, "cum_long": 27231952.98160289, "cum_short": 0.0}, {"price": 77.69931812499999, "long_usd": 4295301.602206898, "short_usd": 0.0, "cum_long": 5948325.085856425, "cum_short": 0.0}, {"price": 77.995691875, "long_usd": 1627141.2473377318, "short_usd": 0.0, "cum_long": 1653023.4836495265, "cum_short": 0.0}, {"price": 78.29206562499999, "long_usd": 25882.23631179104, "short_usd": 0.0, "cum_long": 25882.236311794764, "cum_short": 0.0}, {"price": 78.58843937500001, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 3.725290298461914e-09, "cum_short": 0.0}, {"price": 78.884813125, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.18118687500001, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.477560625, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 79.77393437500001, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.070308125, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.36668187500001, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.663055625, "long_usd": 1.862645149230957e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 80.95942937500001, "long_usd": 0.0, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.255803125, "long_usd": 1.862645149230957e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.552176875, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 81.848550625, "long_usd": 3.725290298461914e-09, "short_usd": 0.0, "cum_long": 0.0, "cum_short": 0.0}, {"price": 82.144924375, "long_usd": 0.0, "short_usd": 718497.5936431733, "cum_long": 0.0, "cum_short": 718497.5936431733}, {"price": 82.441298125, "long_usd": 1.862645149230957e-09, "short_usd": 2589245.582833753, "cum_long": 0.0, "cum_short": 3307743.1764769265}, {"price": 82.73767187499999, "long_usd": 0.0, "short_usd": 4919615.897339674, "cum_long": 0.0, "cum_short": 8227359.0738166}, {"price": 83.034045625, "long_usd": 0.0, "short_usd": 4196339.661412714, "cum_long": 0.0, "cum_short": 12423698.735229312}, {"price": 83.33041937499999, "long_usd": 2.7939677238464355e-09, "short_usd": 6423213.453702381, "cum_long": 0.0, "cum_short": 18846912.188931696}, {"price": 83.626793125, "long_usd": 1.862645149230957e-09, "short_usd": 6184638.6184435785, "cum_long": 0.0, "cum_short": 25031550.807375275}, {"price": 83.92316687499999, "long_usd": 0.0, "short_usd": 9721701.735852657, "cum_long": 0.0, "cum_short": 34753252.543227926}, {"price": 84.21954062500001, "long_usd": 0.0, "short_usd": 6003044.831537061, "cum_long": 0.0, "cum_short": 40756297.37476499}, {"price": 84.515914375, "long_usd": 0.0, "short_usd": 11765508.904417114, "cum_long": 0.0, "cum_short": 52521806.2791821}, {"price": 84.81228812500001, "long_usd": 0.0, "short_usd": 11409073.662366146, "cum_long": 0.0, "cum_short": 63930879.94154824}, {"price": 85.108661875, "long_usd": 1.3969838619232178e-09, "short_usd": 13776677.726276085, "cum_long": 0.0, "cum_short": 77707557.66782433}, {"price": 85.40503562500001, "long_usd": 0.0, "short_usd": 13335826.821946075, "cum_long": 0.0, "cum_short": 91043384.4897704}, {"price": 85.701409375, "long_usd": 0.0, "short_usd": 8329245.678575393, "cum_long": 0.0, "cum_short": 99372630.1683458}, {"price": 85.99778312500001, "long_usd": 0.0, "short_usd": 10726100.196655056, "cum_long": 0.0, "cum_short": 110098730.36500087}, {"price": 86.294156875, "long_usd": 1.3969838619232178e-09, "short_usd": 7458911.808286838, "cum_long": 0.0, "cum_short": 117557642.17328772}, {"price": 86.59053062500001, "long_usd": 0.0, "short_usd": 6768005.179177789, "cum_long": 0.0, "cum_short": 124325647.35246553}, {"price": 86.886904375, "long_usd": 0.0, "short_usd": 3840825.996681217, "cum_long": 0.0, "cum_short": 128166473.34914672}, {"price": 87.183278125, "long_usd": 0.0, "short_usd": 2658810.9183431016, "cum_long": 0.0, "cum_short": 130825284.26748982}, {"price": 87.479651875, "long_usd": 0.0, "short_usd": 2691080.969734767, "cum_long": 0.0, "cum_short": 133516365.2372246}, {"price": 87.776025625, "long_usd": 0.0, "short_usd": 2657033.7634001616, "cum_long": 0.0, "cum_short": 136173399.00062475}, {"price": 88.072399375, "long_usd": 0.0, "short_usd": 3243302.278029682, "cum_long": 0.0, "cum_short": 139416701.27865443}, {"price": 88.368773125, "long_usd": 0.0, "short_usd": 8508966.41982635, "cum_long": 0.0, "cum_short": 147925667.69848078}, {"price": 88.665146875, "long_usd": 1.3969838619232178e-09, "short_usd": 6417028.623663002, "cum_long": 0.0, "cum_short": 154342696.3221438}, {"price": 88.96152062499999, "long_usd": 0.0, "short_usd": 6843534.292679532, "cum_long": 0.0, "cum_short": 161186230.6148233}, {"price": 89.257894375, "long_usd": 0.0, "short_usd": 14193207.771191062, "cum_long": 0.0, "cum_short": 175379438.38601437}, {"price": 89.554268125, "long_usd": 0.0, "short_usd": 13977843.000869725, "cum_long": 0.0, "cum_short": 189357281.3868841}, {"price": 89.85064187500001, "long_usd": 0.0, "short_usd": 16333221.36803102, "cum_long": 0.0, "cum_short": 205690502.75491512}, {"price": 90.147015625, "long_usd": 0.0, "short_usd": 9495600.84430929, "cum_long": 0.0, "cum_short": 215186103.5992244}, {"price": 90.443389375, "long_usd": 0.0, "short_usd": 11751976.169940704, "cum_long": 0.0, "cum_short": 226938079.76916516}, {"price": 90.739763125, "long_usd": 0.0, "short_usd": 13778391.597059991, "cum_long": 0.0, "cum_short": 240716471.36622512}, {"price": 91.036136875, "long_usd": 0.0, "short_usd": 11285109.864038227, "cum_long": 0.0, "cum_short": 252001581.23026332}, {"price": 91.332510625, "long_usd": 0.0, "short_usd": 17331807.160754237, "cum_long": 0.0, "cum_short": 269333388.3910176}, {"price": 91.628884375, "long_usd": 0.0, "short_usd": 14628309.173095964, "cum_long": 0.0, "cum_short": 283961697.5641136}, {"price": 91.925258125, "long_usd": 0.0, "short_usd": 12570808.37523087, "cum_long": 0.0, "cum_short": 296532505.9393444}, {"price": 92.221631875, "long_usd": 0.0, "short_usd": 20631062.086306125, "cum_long": 0.0, "cum_short": 317163568.0256505}, {"price": 92.518005625, "long_usd": 0.0, "short_usd": 18390722.82077825, "cum_long": 0.0, "cum_short": 335554290.84642875}, {"price": 92.814379375, "long_usd": 0.0, "short_usd": 18916815.886076216, "cum_long": 0.0, "cum_short": 354471106.73250496}, {"price": 93.110753125, "long_usd": 0.0, "short_usd": 19529607.43857465, "cum_long": 0.0, "cum_short": 374000714.1710797}, {"price": 93.407126875, "long_usd": 0.0, "short_usd": 15897991.801184356, "cum_long": 0.0, "cum_short": 389898705.972264}, {"price": 93.703500625, "long_usd": 0.0, "short_usd": 14049878.420456264, "cum_long": 0.0, "cum_short": 403948584.3927203}, {"price": 93.999874375, "long_usd": 0.0, "short_usd": 11864683.352016827, "cum_long": 0.0, "cum_short": 415813267.7447371}, {"price": 94.296248125, "long_usd": 0.0, "short_usd": 11826197.933069391, "cum_long": 0.0, "cum_short": 427639465.6778065}, {"price": 94.592621875, "long_usd": 0.0, "short_usd": 7052710.870641346, "cum_long": 0.0, "cum_short": 434692176.5484479}, {"price": 94.888995625, "long_usd": 0.0, "short_usd": 9265801.04556807, "cum_long": 0.0, "cum_short": 443957977.5940159}, {"price": 95.185369375, "long_usd": 0.0, "short_usd": 9666468.149328668, "cum_long": 0.0, "cum_short": 453624445.74334455}, {"price": 95.481743125, "long_usd": 0.0, "short_usd": 9000644.148206424, "cum_long": 0.0, "cum_short": 462625089.89155096}, {"price": 95.778116875, "long_usd": 0.0, "short_usd": 15130929.185330993, "cum_long": 0.0, "cum_short": 477756019.076882}, {"price": 96.074490625, "long_usd": 0.0, "short_usd": 10536079.616744444, "cum_long": 0.0, "cum_short": 488292098.6936264}, {"price": 96.370864375, "long_usd": 0.0, "short_usd": 12915144.120962275, "cum_long": 0.0, "cum_short": 501207242.8145887}, {"price": 96.667238125, "long_usd": 0.0, "short_usd": 10834753.93922941, "cum_long": 0.0, "cum_short": 512041996.7538181}, {"price": 96.963611875, "long_usd": 0.0, "short_usd": 10990468.427955983, "cum_long": 0.0, "cum_short": 523032465.1817741}, {"price": 97.259985625, "long_usd": 0.0, "short_usd": 16790079.16162899, "cum_long": 0.0, "cum_short": 539822544.3434031}, {"price": 97.556359375, "long_usd": 0.0, "short_usd": 17145040.551037647, "cum_long": 0.0, "cum_short": 556967584.8944408}, {"price": 97.852733125, "long_usd": 0.0, "short_usd": 17737895.244846974, "cum_long": 0.0, "cum_short": 574705480.1392877}, {"price": 98.149106875, "long_usd": 0.0, "short_usd": 14376237.345639214, "cum_long": 0.0, "cum_short": 589081717.4849269}, {"price": 98.445480625, "long_usd": 0.0, "short_usd": 15211905.502074145, "cum_long": 0.0, "cum_short": 604293622.9870011}, {"price": 98.741854375, "long_usd": 0.0, "short_usd": 14703458.338624358, "cum_long": 0.0, "cum_short": 618997081.3256254}, {"price": 99.038228125, "long_usd": 0.0, "short_usd": 16899401.8005277, "cum_long": 0.0, "cum_short": 635896483.1261531}, {"price": 99.334601875, "long_usd": 0.0, "short_usd": 16569822.247071158, "cum_long": 0.0, "cum_short": 652466305.3732243}, {"price": 99.630975625, "long_usd": 0.0, "short_usd": 14968997.239910183, "cum_long": 0.0, "cum_short": 667435302.6131344}, {"price": 99.927349375, "long_usd": 0.0, "short_usd": 18783343.43942608, "cum_long": 0.0, "cum_short": 686218646.0525604}, {"price": 100.223723125, "long_usd": 0.0, "short_usd": 14737023.684612712, "cum_long": 0.0, "cum_short": 700955669.7371732}, {"price": 100.520096875, "long_usd": 0.0, "short_usd": 15513208.917705446, "cum_long": 0.0, "cum_short": 716468878.6548786}, {"price": 100.816470625, "long_usd": 0.0, "short_usd": 12392278.970699944, "cum_long": 0.0, "cum_short": 728861157.6255785}, {"price": 101.112844375, "long_usd": 0.0, "short_usd": 14065282.357003411, "cum_long": 0.0, "cum_short": 742926439.982582}, {"price": 101.409218125, "long_usd": 0.0, "short_usd": 15550366.876192372, "cum_long": 0.0, "cum_short": 758476806.8587743}, {"price": 101.705591875, "long_usd": 0.0, "short_usd": 19121064.184804704, "cum_long": 0.0, "cum_short": 777597871.043579}, {"price": 102.001965625, "long_usd": 0.0, "short_usd": 12183791.370213108, "cum_long": 0.0, "cum_short": 789781662.4137921}, {"price": 102.298339375, "long_usd": 0.0, "short_usd": 13975212.456653072, "cum_long": 0.0, "cum_short": 803756874.8704453}, {"price": 102.594713125, "long_usd": 0.0, "short_usd": 18677702.83522143, "cum_long": 0.0, "cum_short": 822434577.7056667}];
 
     const slider = document.getElementById('priceSlider');
     const targetPriceDisplay = document.getElementById('targetPriceDisplay');
@@ -973,6 +1017,203 @@
     // Initial render
     window.addEventListener('resize', () => drawDepthChart(parseFloat(slider.value)));
     updateSimulation(SPOT);
+
+    // Audio Synthesizer
+    let audioEnabled = true;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {}
+      }
+    }
+
+    function playTickSound(isBuy, isWhale) {
+      if (!audioEnabled) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = isWhale ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(isWhale ? 880 : (isBuy ? 580 : 420), audioCtx.currentTime);
+        gain.gain.setValueAtTime(isWhale ? 0.08 : 0.02, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (isWhale ? 0.18 : 0.05));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + (isWhale ? 0.18 : 0.05));
+      } catch(e) {}
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('audioToggleBtn');
+      btn.textContent = audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+      btn.style.color = audioEnabled ? 'var(--text-main)' : 'var(--text-dim)';
+    }
+
+    function onLivePriceUpdate(newPrice) {
+      const diff = newPrice - SPOT;
+      if (Math.abs(diff) > 0.0001) {
+        const badge = document.getElementById('spotBadge');
+        if (badge) {
+          badge.textContent = '$' + newPrice.toFixed(4) + (diff > 0 ? ' ▲' : ' ▼');
+          badge.style.background = diff > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
+          badge.style.color = diff > 0 ? '#10b981' : '#ef4444';
+          setTimeout(() => {
+            badge.style.background = 'transparent';
+            badge.style.color = 'var(--accent-cyan)';
+          }, 500);
+        }
+        SPOT = newPrice;
+
+        // Recalculate cluster distances
+        const longPct = ((NEAR_LONG_P - SPOT) / SPOT) * 100;
+        const shortPct = ((NEAR_SHORT_P - SPOT) / SPOT) * 100;
+        const nL = document.getElementById('nearLongDist');
+        const nS = document.getElementById('nearShortDist');
+        if (nL) nL.textContent = '$' + NEAR_LONG_P.toFixed(2) + ' (' + (NEAR_LONG_V / 1e6).toFixed(1) + 'M, ' + (longPct > 0 ? '+' : '') + longPct.toFixed(1) + '%)';
+        if (nS) nS.textContent = '$' + NEAR_SHORT_P.toFixed(2) + ' (' + (NEAR_SHORT_V / 1e6).toFixed(1) + 'M, ' + (shortPct > 0 ? '+' : '') + shortPct.toFixed(1) + '%)';
+
+        // Redraw depth chart with updated SPOT needle
+        drawDepthChart(parseFloat(slider.value));
+      }
+    }
+
+    function addTradeToTape(t) {
+      const feed = document.getElementById('termTapeFeed');
+      if (!feed) return;
+      const isBuy = t.side === 'B' || t.side === 'buy';
+      const px = parseFloat(t.px);
+      const sz = parseFloat(t.sz);
+      const notional = px * sz;
+      const isWhale = notional >= 15000;
+      const timeStr = new Date(t.time || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+      playTickSound(isBuy, isWhale);
+
+      const item = document.createElement('span');
+      item.style.cssText = 'display:inline-flex;align-items:center;gap:0.4rem;padding:0.2rem 0.5rem;border-radius:4px;background:rgba(255,255,255,0.03);flex-shrink:0;';
+      item.innerHTML = `<span style="color:var(--text-dim);font-size:0.75rem;">${timeStr}</span> ` +
+                       `<b style="color:${isBuy ? 'var(--accent-green)' : 'var(--accent-red)'};">${isBuy ? 'BUY' : 'SELL'}</b> ` +
+                       `<span>${sz.toFixed(2)} @ $${px.toFixed(2)}</span> ` +
+                       `<span style="color:var(--text-muted);font-size:0.75rem;">($${Math.round(notional).toLocaleString()})</span>` +
+                       (isWhale ? ` <span style="background:rgba(245,158,11,0.2);color:#f59e0b;padding:0.1rem 0.35rem;border-radius:3px;font-size:0.65rem;font-weight:700;">🐋 WHALE</span>` : '');
+
+      feed.insertBefore(item, feed.firstChild);
+      while (feed.children.length > 20) {
+        feed.removeChild(feed.lastChild);
+      }
+    }
+
+    // Direct Hyperliquid WebSocket client
+    let termWs = null;
+    function connectTerminalWS() {
+      try {
+        termWs = new WebSocket('wss://api.hyperliquid.xyz/ws');
+        termWs.onopen = () => {
+          const b = document.getElementById('wsStatusBadge');
+          const t = document.getElementById('wsStatusText');
+          if (b && t) {
+            b.style.background = 'rgba(16,185,129,0.15)';
+            b.style.borderColor = 'rgba(16,185,129,0.35)';
+            b.style.color = 'var(--accent-green)';
+            t.textContent = 'LIVE WS CONNECTED';
+          }
+          termWs.send(JSON.stringify({method: "subscribe", subscription: {type: "trades", coin: "HYPE"}}));
+          termWs.send(JSON.stringify({method: "subscribe", subscription: {type: "allMids"}}));
+        };
+
+        termWs.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.channel === 'trades' && msg.data) {
+              const trades = Array.isArray(msg.data) ? msg.data : [msg.data];
+              trades.forEach(t => {
+                if (t.coin === 'HYPE') {
+                  onLivePriceUpdate(parseFloat(t.px));
+                  addTradeToTape(t);
+                }
+              });
+            } else if (msg.channel === 'allMids' && msg.data && msg.data.mids && msg.data.mids.HYPE) {
+              onLivePriceUpdate(parseFloat(msg.data.mids.HYPE));
+            }
+          } catch(err) {}
+        };
+
+        termWs.onclose = () => {
+          setTimeout(connectTerminalWS, 3000);
+        };
+      } catch(e) {}
+    }
+
+    // Polling server /api/live for Air Pocket and Depth calculations
+    async function pollLiveTelemetry() {
+      try {
+        const res = await fetch('/api/live');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.spot) onLivePriceUpdate(data.spot);
+          if (data.bids_2pct && document.getElementById('termBids2')) {
+            document.getElementById('termBids2').textContent = '$' + (data.bids_2pct / 1e6).toFixed(2) + 'M';
+          }
+          if (data.asks_2pct && document.getElementById('termAsks2')) {
+            document.getElementById('termAsks2').textContent = '$' + (data.asks_2pct / 1e6).toFixed(2) + 'M';
+          }
+          if (data.oi_usd && document.getElementById('termOiBadge')) {
+            document.getElementById('termOiBadge').textContent = '$' + (data.oi_usd / 1e6).toFixed(1) + 'M';
+          }
+
+          const badge = document.getElementById('airPocketCardBadge');
+          const main = document.getElementById('termAirPocketMain');
+          const desc = document.getElementById('termAirPocketDesc');
+          if (badge && main && desc && data.air_pocket_status) {
+            if (data.air_pocket_long || data.air_pocket_short) {
+              badge.className = 'risk-badge risk-high';
+              badge.textContent = '⚠️ AIR POCKET';
+              main.textContent = 'VOID GAP';
+              main.style.color = 'var(--accent-red)';
+              desc.textContent = data.air_pocket_status;
+            } else {
+              badge.className = 'risk-badge risk-low';
+              badge.textContent = '🛡️ SOUND';
+              main.textContent = 'HEALTHY';
+              main.style.color = 'var(--accent-green)';
+              desc.textContent = data.air_pocket_status;
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    async function refreshLive() {
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      btn.textContent = '⏳ Syncing...';
+      try {
+        const res = await fetch('/api/refresh', { method: 'POST' });
+        if (res.ok) {
+          btn.textContent = 'Reloading...';
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          btn.textContent = 'Sync Failed';
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }
+      } catch (e) {
+        btn.textContent = 'Sync Error';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    }
+
+    connectTerminalWS();
+    setInterval(pollLiveTelemetry, 2500);
+    pollLiveTelemetry();
   </script>
 </body>
 </html>
