@@ -889,8 +889,23 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
     </div>
   </section>
 
-  <footer>
-    <p>Hyperliquid HYPE/USDC Perpetual Deterministic Liquidation Model &bull; Live Port: 41345</p>
+  <!-- Detailed System & Telemetry Footer -->
+  <footer style="margin-top:auto;padding:1.25rem 1.5rem;margin-bottom:1rem;border-top:1px solid rgba(255,255,255,0.08);background:rgba(10,15,29,0.75);backdrop-filter:blur(16px);border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.85rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#94a3b8;">
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:0.4rem;color:#38bdf8;font-weight:600;">
+        📁 <span>D:\\projects\\N1</span>
+      </span>
+      <span style="color:rgba(255,255,255,0.15);">|</span>
+      <span>INTERNAL IP: <b id="footerInternalIp" style="color:#10b981;">192.168.1.12</b></span>
+      <span style="color:rgba(255,255,255,0.15);">|</span>
+      <span>EXTERNAL IP: <b id="footerExternalIp" style="color:#f59e0b;">83.5.208.192</b></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <span style="color:#64748b;">AI ARCHITECTURE:</span>
+      <span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.25rem 0.6rem;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.35);color:#c084fc;font-weight:700;border-radius:6px;font-size:0.72rem;">
+        🤖 Antigravity 2.0 (Google DeepMind) &bull; Gemini 2.5 Pro
+      </span>
+    </div>
   </footer>
 
   <script>
@@ -1458,6 +1473,11 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
               main.style.color = 'var(--accent-green)';
               desc.textContent = data.air_pocket_status;
             }}
+          if (data.internal_ip && document.getElementById('footerInternalIp')) {{
+            document.getElementById('footerInternalIp').textContent = data.internal_ip;
+          }}
+          if (data.external_ip && document.getElementById('footerExternalIp')) {{
+            document.getElementById('footerExternalIp').textContent = data.external_ip;
           }}
         }}
       }} catch(e) {{}}

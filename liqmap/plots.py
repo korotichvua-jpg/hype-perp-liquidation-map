@@ -614,6 +614,12 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
                 pill.textContent = '🛡️ LIQUIDITY SOUND';
               }}
             }}
+            if (data.internal_ip && document.getElementById('footerInternalIp')) {{
+              document.getElementById('footerInternalIp').textContent = data.internal_ip;
+            }}
+            if (data.external_ip && document.getElementById('footerExternalIp')) {{
+              document.getElementById('footerExternalIp').textContent = data.external_ip;
+            }}
           }}
         }} catch(e) {{}}
       }}
@@ -654,9 +660,29 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
       pollLiveAPI();
     </script>
     """
+    footer_html = r"""
+    <!-- Detailed System & Telemetry Footer -->
+    <footer style="margin:2.5rem 1.5rem 1.5rem 1.5rem;padding:1.25rem 1.5rem;border-top:1px solid rgba(255,255,255,0.08);background:rgba(10,15,29,0.75);backdrop-filter:blur(16px);border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.85rem;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:#94a3b8;">
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:0.4rem;color:#38bdf8;font-weight:600;">
+          📁 <span>D:\projects\N1</span>
+        </span>
+        <span style="color:rgba(255,255,255,0.15);">|</span>
+        <span>INTERNAL IP: <b id="footerInternalIp" style="color:#10b981;">192.168.1.12</b></span>
+        <span style="color:rgba(255,255,255,0.15);">|</span>
+        <span>EXTERNAL IP: <b id="footerExternalIp" style="color:#f59e0b;">83.5.208.192</b></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+        <span style="color:#64748b;">AI ARCHITECTURE:</span>
+        <span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.25rem 0.6rem;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.35);color:#c084fc;font-weight:700;border-radius:6px;font-size:0.72rem;">
+          🤖 Antigravity 2.0 (Google DeepMind) &bull; Gemini 2.5 Pro
+        </span>
+      </div>
+    </footer>
+    """
     html = ("<html><head><meta charset='utf-8'><title>HYPE Perp - Live Liquidation Map (CCXT)</title>"
             "<link rel='preconnect' href='https://fonts.googleapis.com'>"
             "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap' rel='stylesheet'>"
-            "</head><body style='background:#080b11;margin:0;padding-bottom:2.5rem;'>" + header_html + "".join(parts) + "</body></html>")
+            "</head><body style='background:#080b11;margin:0;padding-bottom:3.5rem;'>" + header_html + "".join(parts) + footer_html + "</body></html>")
     path.write_text(html, encoding="utf-8")
 
