@@ -121,6 +121,17 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
         </span>
       </div>
       <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+        <!-- Multi-Timeframe Selector Pill Bar -->
+        <div id="timeframeSelector" style="display:inline-flex;align-items:center;gap:0.25rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);padding:0.2rem 0.4rem;border-radius:8px;font-family:'JetBrains Mono',monospace;">
+          <span style="font-size:0.68rem;color:#64748b;font-weight:700;margin-right:0.2rem;text-transform:uppercase;letter-spacing:0.04em;">TF:</span>
+          <button class="tf-btn" onclick="switchTimeframe('1m')">1m</button>
+          <button class="tf-btn" onclick="switchTimeframe('5m')">5m</button>
+          <button class="tf-btn" onclick="switchTimeframe('15m')">15m</button>
+          <button class="tf-btn" onclick="switchTimeframe('30m')">30m</button>
+          <button class="tf-btn active" onclick="switchTimeframe('1h')">1h</button>
+          <button class="tf-btn" onclick="switchTimeframe('4h')">4h</button>
+          <span id="tfStatusIndicator" style="display:none;margin-left:0.35rem;font-size:0.68rem;color:#38bdf8;font-weight:600;"></span>
+        </div>
         <div id="depthStats" style="display:inline-flex;align-items:center;gap:0.5rem;font-size:0.75rem;color:#94a3b8;font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,0.03);padding:0.25rem 0.6rem;border-radius:6px;border:1px solid rgba(255,255,255,0.06);">
           <span>Bids(2%): <b id="statBids" style="color:#10b981;">$1.2M</b></span>
           <span style="color:rgba(255,255,255,0.2);">|</span>
@@ -280,6 +291,28 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
         background: rgba(56,189,248,0.18);
         color: #38bdf8;
         border-color: rgba(56,189,248,0.4);
+      }}
+      .tf-btn {{
+        background: transparent;
+        border: 1px solid transparent;
+        color: #94a3b8;
+        font-family: inherit;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.15rem 0.45rem;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }}
+      .tf-btn:hover {{
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+      }}
+      .tf-btn.active {{
+        background: rgba(56, 189, 248, 0.2);
+        border-color: rgba(56, 189, 248, 0.5);
+        color: #38bdf8;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
       }}
       .card-standard {{
         display: inline-flex;
@@ -734,11 +767,68 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
       }}
 
       let MAP_PAYLOAD = null;
+      let currentTimeframe = '1h';
       async function loadInitialMapPayload() {{
         try {{
           const r = await fetch('/api/map-data');
-          if (r.ok) MAP_PAYLOAD = await r.json();
+          if (r.ok) {{
+            MAP_PAYLOAD = await r.json();
+            if (MAP_PAYLOAD.timeframe) currentTimeframe = MAP_PAYLOAD.timeframe;
+          }}
         }} catch(e) {{}}
+      }}
+
+      async function switchTimeframe(tf) {{
+        if (tf === currentTimeframe && MAP_PAYLOAD && MAP_PAYLOAD.timeframe === tf) return;
+        const buttons = document.querySelectorAll('.tf-btn');
+        buttons.forEach(b => {{
+          if (b.textContent.trim() === tf) b.classList.add('active');
+          else b.classList.remove('active');
+        }});
+
+        const indicator = document.getElementById('tfStatusIndicator');
+        if (indicator) {{
+          indicator.style.display = 'inline-block';
+          indicator.textContent = `⚡ Calculating ${{tf}}...`;
+          indicator.style.color = '#38bdf8';
+        }}
+
+        try {{
+          const res = await fetch(`/api/map-data?timeframe=${{tf}}`);
+          if (res.ok) {{
+            const data = await res.json();
+            currentTimeframe = tf;
+            MAP_PAYLOAD = data;
+
+            const hPlot = document.getElementById('heatmapPlot');
+            const sPlot = document.getElementById('histogramPlot');
+            if (window.Plotly && hPlot && data.heatmap) {{
+              await Plotly.react(hPlot, data.heatmap.data, data.heatmap.layout);
+            }}
+            if (window.Plotly && sPlot && data.histogram) {{
+              await Plotly.react(sPlot, data.histogram.data, data.histogram.layout);
+            }}
+            if (data.spot) updatePriceDisplay(data.spot);
+            if (indicator) {{
+              const hl = data.half_life_hours ? `${{data.half_life_hours}}h` : 'decay';
+              indicator.textContent = `✓ ${{tf}} (${{hl}})`;
+              indicator.style.color = '#10b981';
+              setTimeout(() => {{ indicator.style.display = 'none'; }}, 2200);
+            }}
+          }} else {{
+            if (indicator) {{
+              indicator.textContent = '❌ Failed';
+              indicator.style.color = '#ef4444';
+              setTimeout(() => {{ indicator.style.display = 'none'; }}, 2500);
+            }}
+          }}
+        }} catch(e) {{
+          if (indicator) {{
+            indicator.textContent = '❌ Error';
+            indicator.style.color = '#ef4444';
+            setTimeout(() => {{ indicator.style.display = 'none'; }}, 2500);
+          }}
+        }}
       }}
 
       function applyMapShock(pct) {{
@@ -872,6 +962,6 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
             "</head><body style='background:#080b11;margin:0;padding-bottom:3.5rem;'>" + header_html + "".join(parts) + footer_html + "</body></html>")
     path.write_text(html, encoding="utf-8")
     if path.name == "hype_liquidation_map.html":
-        for alt_name in ("hype_liquidation_map_v2.html", "hype_live_map.html"):
+        for alt_name in ("hype_liquidation_map_v2.html", "hype_live_map.html", "hype_timeframe_liqmap.html"):
             (path.parent / alt_name).write_text(html, encoding="utf-8")
 

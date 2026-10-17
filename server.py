@@ -19,6 +19,7 @@ from run import main as run_pipeline
 
 import threading
 import time
+import urllib.parse
 import urllib.request
 import pandas as pd
 
@@ -173,13 +174,17 @@ class LiveStateEngine:
 
 
 LIVE_ENGINE: LiveStateEngine | None = None
+_TF_PAYLOAD_CACHE: dict = {}
+_TF_CACHE_TIME: float = 0.0
 
 
 class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Serve files from directory and default root path to terminal.html or hype_liquidation_map.html."""
 
     def do_POST(self) -> None:
-        if self.path in ("/api/refresh", "/api/refresh/"):
+        parsed = urllib.parse.urlsplit(self.path)
+        path_only = parsed.path
+        if path_only in ("/api/refresh", "/api/refresh/"):
             try:
                 print("Fetching latest live CCXT Hyperliquid HYPE perp data...", flush=True)
                 try:
@@ -202,7 +207,11 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_error(404, "Not Found")
 
     def do_GET(self) -> None:
-        if self.path in ("/refresh", "/refresh/"):
+        parsed = urllib.parse.urlsplit(self.path)
+        path_only = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
+
+        if path_only in ("/refresh", "/refresh/"):
             print("Triggering manual refresh from live CCXT HYPE perps...", flush=True)
             try:
                 try:
@@ -217,7 +226,7 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        if self.path in ("/api/live", "/api/live/"):
+        if path_only in ("/api/live", "/api/live/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -227,7 +236,49 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(data).encode())
             return
 
-        if self.path in ("/api/map-data", "/api/map-data/"):
+        if path_only in ("/api/map-data", "/api/map-data/"):
+            tf = query.get("timeframe", ["1h"])[0].lower()
+            if tf in ("1m", "5m", "15m", "30m", "1h", "4h"):
+                global _TF_PAYLOAD_CACHE, _TF_CACHE_TIME
+                now = time.time()
+                if now - _TF_CACHE_TIME > 60:
+                    _TF_PAYLOAD_CACHE.clear()
+                    _TF_CACHE_TIME = now
+                if tf in _TF_PAYLOAD_CACHE:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    self.end_headers()
+                    self.wfile.write(_TF_PAYLOAD_CACHE[tf])
+                    return
+                try:
+                    from liqmap.multi_tf import calculate_timeframe_payload
+                    from liqmap.data import load_snapshot
+                    snap_dir = Path("data/last")
+                    if snap_dir.exists() and (snap_dir / "ohlcv.parquet").exists():
+                        base_df, meta = load_snapshot(snap_dir)
+                    else:
+                        from liqmap.data import synthetic_ohlcv
+                        base_df = synthetic_ohlcv()
+                        meta = {"oi_usd": 1580000000.0, "symbol": "HYPE/USDC:USDC"}
+
+                    oi_usd = float(meta.get("oi_usd", 1580000000.0))
+                    symbol = str(meta.get("symbol", "HYPE/USDC:USDC"))
+                    payload = calculate_timeframe_payload(base_df, tf, oi_usd=oi_usd, symbol=symbol)
+                    serialized = json.dumps(payload).encode()
+                    _TF_PAYLOAD_CACHE[tf] = serialized
+
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    self.end_headers()
+                    self.wfile.write(serialized)
+                    return
+                except Exception as e:
+                    print(f"Error calculating timeframe {tf}: {e}", flush=True)
+
             out_dir = Path(getattr(self, "directory", "output"))
             map_file = out_dir / "map_data.json"
             if not map_file.exists():
@@ -247,7 +298,7 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(b'{"error": "map_data.json not found"}')
             return
 
-        if self.path in ("/api/stream", "/api/stream/"):
+        if path_only in ("/api/stream", "/api/stream/"):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -260,13 +311,12 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
                     payload = f"data: {json.dumps(data)}\n\n".encode()
                     self.wfile.write(payload)
                     self.wfile.flush()
-                    import time
                     time.sleep(1.0)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
             return
 
-        if self.path in ("/api/refresh", "/api/refresh/"):
+        if path_only in ("/api/refresh", "/api/refresh/"):
             try:
                 print("Fetching latest live CCXT Hyperliquid HYPE perp data...", flush=True)
                 run_pipeline()
@@ -283,28 +333,34 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode())
             return
 
-        if self.path in ("/", "", "/terminal", "/terminal/"):
+        if path_only in ("/", "", "/terminal", "/terminal/"):
             self.path = "/terminal.html"
-        elif self.path in ("/map", "/map/"):
+        elif path_only in ("/map", "/map/"):
             self.path = "/hype_liquidation_map.html"
-        elif self.path in ("/map-v2", "/map-v2/"):
+        elif path_only in ("/map-v2", "/map-v2/"):
             self.path = "/hype_liquidation_map_v2.html"
-        elif self.path in ("/live-map", "/live-map/", "/map-live", "/map-live/"):
+        elif path_only in ("/live-map", "/live-map/", "/map-live", "/map-live/"):
             self.path = "/hype_live_map.html"
+        elif path_only in ("/timeframe-map", "/timeframe-map/", "/map-tf", "/map-tf/", "/timeframe", "/timeframe/", "/hype_timeframe_liqmap.html"):
+            self.path = "/hype_timeframe_liqmap.html"
         try:
             return super().do_GET()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
     def do_HEAD(self) -> None:
-        if self.path in ("/", "", "/terminal", "/terminal/"):
+        parsed = urllib.parse.urlsplit(self.path)
+        path_only = parsed.path
+        if path_only in ("/", "", "/terminal", "/terminal/"):
             self.path = "/terminal.html"
-        elif self.path in ("/map", "/map/"):
+        elif path_only in ("/map", "/map/"):
             self.path = "/hype_liquidation_map.html"
-        elif self.path in ("/map-v2", "/map-v2/"):
+        elif path_only in ("/map-v2", "/map-v2/"):
             self.path = "/hype_liquidation_map_v2.html"
-        elif self.path in ("/live-map", "/live-map/", "/map-live", "/map-live/"):
+        elif path_only in ("/live-map", "/live-map/", "/map-live", "/map-live/"):
             self.path = "/hype_live_map.html"
+        elif path_only in ("/timeframe-map", "/timeframe-map/", "/map-tf", "/map-tf/", "/timeframe", "/timeframe/", "/hype_timeframe_liqmap.html"):
+            self.path = "/hype_timeframe_liqmap.html"
         try:
             return super().do_HEAD()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
