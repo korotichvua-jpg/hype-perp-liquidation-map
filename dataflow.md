@@ -213,3 +213,28 @@ stateDiagram-v2
     ScaledToOI --> BinnedToGrid: Aggregated into Time x Price Grid Cell
     BinnedToGrid --> Rendered: Visualized on Terminal & Heatmap
 ```
+
+---
+
+### 8. Pipeline 6: Caddy Edge Ingress & Reverse Proxy Routing Flow
+
+The ingress path connecting external browser clients to internal application processes.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Trader Browser
+    participant Caddy as Caddy Reverse Proxy (:41345)
+    participant Upstream as DualStackServer (:12312)
+    participant Disk as Static Storage (/output)
+
+    Client->>Caddy: GET /terminal (or /map, /api/live)
+    Note over Caddy: Match host: localhost:41345<br/>Route via srv_41345 upstream 127.0.0.1:12312
+    Caddy->>Upstream: Forward HTTP/1.1 Request
+    Upstream->>Disk: Read HTML, CSV, or Query LiveStateEngine
+    Disk-->>Upstream: Raw Payload
+    Upstream-->>Caddy: HTTP 200 OK + Payload
+    Note over Caddy: Apply Gzip / Zstandard Compression<br/>Add Security Headers
+    Caddy-->>Client: Compressed HTTP 200 Response
+```
+

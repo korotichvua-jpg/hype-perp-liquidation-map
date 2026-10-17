@@ -213,3 +213,20 @@ The system operates under three concurrent deployment configurations:
 2. **Dual-Stack Socket Management:**
    - Inherits from `http.server.ThreadingHTTPServer` with `daemon_threads = True` and `allow_reuse_address = True`.
    - Binds to IPv6 `::` with transparent fallback to IPv4 `0.0.0.0`, enabling simultaneous access across localhost, intranet, and IPv6 network bridges.
+
+---
+
+### 8. Caddy Manager & Metadata Manifest (`memo.md`)
+
+The deployment architecture integrates with the Antigravity `caddy-manager` daemon and visual hub at `http://localhost:62225`.
+
+```mermaid
+flowchart LR
+    Memo["memo.md (Root Manifest)<br/>Port: 41345, Key: srv_41345"] -->|Parse on Build| CaddyMgr["caddy-manager Daemon"]
+    CaddyMgr -->|Configure Reverse Proxy| Caddy["Caddy Server (:41345)"]
+    CaddyMgr -->|Render Tile & Health Status| Dashboard["Visual Hub (:62225)"]
+```
+
+- **Manifest Contract:** [`memo.md`](file:///D:/projects/N1/memo.md) defines project slug, display name, target port (`41345`), upstream daemon (`127.0.0.1:12312`), and last build timestamp.
+- **Visual Inspection:** The visual hub (:62225) continuously monitors Caddy reverse proxy latency and upstream server health.
+

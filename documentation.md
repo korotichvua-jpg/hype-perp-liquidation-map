@@ -264,3 +264,47 @@ python -m pytest
 | [`tests/test_traceability.py`](file:///D:/projects/N1/tests/test_traceability.py) | 5 | End-to-end data pipeline traceability from raw snapshot to rendered HTML/CSV |
 | [`tests/test_unit.py`](file:///D:/projects/N1/tests/test_unit.py) | 11 | `ModelConfig` validation, synthetic OHLCV generators, `LiveStateEngine` thread safety |
 | [`tests/test_e2e_playwright.py`](file:///D:/projects/N1/tests/test_e2e_playwright.py) | 10 | Headless Chromium browser validation of DOM, slider interaction, tape HUD, and Plotly rendering |
+
+---
+
+### 10. Caddy Web Server Deployment & Dashboard Memo
+
+The application is engineered for production-grade local hosting via the **Caddy Web Server** and Antigravity's **caddy-manager** ecosystem.
+
+#### Reverse Proxy Routing
+Caddy serves as the hardened edge ingress:
+- **Public Port:** `41345`
+- **Upstream Daemon:** `127.0.0.1:12312` (Python `DualStackServer` / Podman `n1-liqmap-container`)
+- **Proxy Key:** `srv_41345`
+
+All requests to `http://localhost:41345/terminal`, `http://localhost:41345/map`, and `/api/*` are reverse-proxied transparently with HTTP gzip compression and zero-copy static asset streaming.
+
+#### Deployment Manifest (`memo.md`)
+The repository includes a standardized [`memo.md`](file:///D:/projects/N1/memo.md) file recognized by `caddy-manager` and the visual dashboard on port `62225`:
+
+```yaml
+---
+project_name: "hype-perp-liquidation-map"
+display_name: "HYPE Perp Liquidation Map & Pro Terminal"
+port: 41345
+type: "Quantitative Trading Dashboard & Web Server"
+route_path: "D:\\projects\\N1\\output"
+last_build: "2026-10-17 18:41:59"
+upstream: "127.0.0.1:12312"
+caddy_server_key: "srv_41345"
+description: "Deterministic liquidation map, real-time WebSocket fire tape HUD, waterfall shock simulator, and L2 depth air pocket detector for Hyperliquid HYPE perp."
+---
+```
+
+#### Caddy Management Commands
+```powershell
+# Verify Caddy Admin API health
+caddy-manager status
+
+# Add reverse proxy route
+caddy-manager proxy --host localhost --port 41345 --to 127.0.0.1:12312
+
+# Inspect all active hosted sites
+caddy-manager list
+```
+
