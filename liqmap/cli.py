@@ -62,6 +62,17 @@ def main(argv=None) -> Path:
     grids = build_grids(pos, len(df), ref_price, cfg)
 
     a.out.mkdir(parents=True, exist_ok=True)
+    try:
+        import plotly
+        import shutil
+        pkg_plotly = Path(plotly.__file__).parent / "package_data" / "plotly.min.js"
+        if pkg_plotly.exists():
+            target_plotly = a.out / "plotly.min.js"
+            if not target_plotly.exists() or target_plotly.stat().st_size != pkg_plotly.stat().st_size:
+                shutil.copy(pkg_plotly, target_plotly)
+    except Exception:
+        pass
+
     html = a.out / "hype_liquidation_map.html"
     fig_heat = heatmap_figure(df, grids, ref_price, symbol, oi)
     fig_hist = histogram2d_figure(pos, grids, symbol)

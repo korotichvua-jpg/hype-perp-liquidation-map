@@ -82,7 +82,7 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
                oi_usd: float | None = None, ref_price: float | None = None) -> None:
     div_ids = ["heatmapPlot", "histogramPlot"]
     parts = [f.to_html(full_html=False, div_id=(div_ids[i] if i < len(div_ids) else None),
-                       include_plotlyjs=(True if i == 0 else False))
+                       include_plotlyjs=False)
              for i, f in enumerate(figs)]
     init_price = ref_price or 79.30
     init_oi = oi_usd or 1.58e9
@@ -517,13 +517,12 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
         else if (isWhale) cardClass += ' card-whale';
         else if (isLiq) cardClass += ' card-liq';
 
-        const item = document.createElement('div');
+        // DOM element recycling: Reuse feed.lastElementChild once pool capacity (20) is met
+        const item = (feed.children.length >= 20) ? feed.lastElementChild : document.createElement('div');
         item.className = cardClass;
         item.dataset.whale = isWhale ? 'true' : 'false';
         item.dataset.liq = isLiq ? 'true' : 'false';
-
-        if (currentTapeFilter === 'whales' && !isWhale) item.style.display = 'none';
-        if (currentTapeFilter === 'liqs' && !isLiq) item.style.display = 'none';
+        item.style.display = ((currentTapeFilter === 'whales' && !isWhale) || (currentTapeFilter === 'liqs' && !isLiq)) ? 'none' : '';
 
         item.innerHTML = `<span style="color:#64748b;font-size:0.68rem;">${{timeStr}}</span> ` +
                          `<b style="color:${{isBuy ? '#10b981' : '#ef4444'}};font-size:0.75rem;">${{isBuy ? 'BUY ▲' : 'SELL ▼'}}</b> ` +
@@ -789,9 +788,10 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
       </div>
     </footer>
     """
-    html = ("<html><head><meta charset='utf-8'><title>HYPE Perp - Live Liquidation Map (CCXT)</title>"
+    html = ("<!DOCTYPE html><html><head><meta charset='utf-8'><title>HYPE Perp - Live Liquidation Map (CCXT)</title>"
             "<link rel='preconnect' href='https://fonts.googleapis.com'>"
             "<link href='https://fonts.googleapis.com/css2?family=Inter:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap' rel='stylesheet'>"
+            "<script src='/plotly.min.js' onerror=\"this.onerror=null;this.src='https://cdn.plot.ly/plotly-2.35.2.min.js'\"></script>"
             "</head><body style='background:#080b11;margin:0;padding-bottom:3.5rem;'>" + header_html + "".join(parts) + footer_html + "</body></html>")
     path.write_text(html, encoding="utf-8")
 

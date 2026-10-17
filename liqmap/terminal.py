@@ -1013,8 +1013,14 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
       updateSimulation(p);
     }}
 
+    let simRafId = null;
     slider.addEventListener('input', (e) => {{
-      updateSimulation(parseFloat(e.target.value));
+      const val = parseFloat(e.target.value);
+      if (simRafId) cancelAnimationFrame(simRafId);
+      simRafId = requestAnimationFrame(() => {{
+        updateSimulation(val);
+        simRafId = null;
+      }});
     }});
 
     // High performance HTML5 Canvas chart renderer
@@ -1376,13 +1382,12 @@ def generate_terminal_html(csv_path: Path, meta_path: Path, spot_price: float, o
       else if (isWhale) cardClass += ' card-whale';
       else if (isLiq) cardClass += ' card-liq';
 
-      const item = document.createElement('div');
+      // DOM element recycling: Reuse feed.lastElementChild once pool capacity (20) is met
+      const item = (feed.children.length >= 20) ? feed.lastElementChild : document.createElement('div');
       item.className = cardClass;
       item.dataset.whale = isWhale ? 'true' : 'false';
       item.dataset.liq = isLiq ? 'true' : 'false';
-
-      if (currentTapeFilter === 'whales' && !isWhale) item.style.display = 'none';
-      if (currentTapeFilter === 'liqs' && !isLiq) item.style.display = 'none';
+      item.style.display = ((currentTapeFilter === 'whales' && !isWhale) || (currentTapeFilter === 'liqs' && !isLiq)) ? 'none' : '';
 
       item.innerHTML = `<span style="color:var(--text-dim);font-size:0.68rem;">${{timeStr}}</span> ` +
                        `<b style="color:${{isBuy ? 'var(--accent-green)' : 'var(--accent-red)'}};font-size:0.75rem;">${{isBuy ? 'BUY ▲' : 'SELL ▼'}}</b> ` +

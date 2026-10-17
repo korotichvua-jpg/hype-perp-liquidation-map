@@ -38,6 +38,8 @@ class ModelConfig:
     half_life_hours: float | None = 168.0            # age decay; None = off
     n_price_bins: int = 160
     price_range_pct: float = 0.30                    # map spans price * (1 +/- x)
+    funding_rate_hourly: float = 0.0                 # hourly funding rate (e.g. 0.0001 = 0.01%/hr)
+    funding_drift: bool = False                      # enable cost-of-carry collateral erosion drift
 
     def validate(self) -> None:
         if len(self.tiers) != len(self.tier_weights):
@@ -46,13 +48,25 @@ class ModelConfig:
             raise ValueError("every leverage tier must be in (0, max_leverage]")
         if sum(self.tier_weights) <= 0:
             raise ValueError("tier_weights must sum to > 0")
+        if not (-0.05 <= self.funding_rate_hourly <= 0.05):
+            raise ValueError("funding_rate_hourly must be between -5% and +5%")
 
 
-def liquidation_price(entry, leverage, side, max_leverage):
-    """Isolated-margin liquidation price (Hyperliquid style). side: +1 long, -1 short."""
+def liquidation_price(entry, leverage, side, max_leverage, cum_funding=0.0):
+    """Isolated-margin liquidation price (Hyperliquid style). side: +1 long, -1 short.
+    cum_funding: cumulative funding rate paid (+) or received (-) over holding duration.
+    """
     l = 1.0 / (2.0 * max_leverage)
     entry = np.asarray(entry, dtype=float)
-    return entry - side * entry * (1.0 / leverage - l) / (1.0 - l * side)
+    inv_l = 1.0 / np.asarray(leverage, dtype=float)
+    if np.any(cum_funding != 0.0):
+        # Long (side=+1) pays positive funding -> margin erodes (inv_l - cum_funding)
+        # Short (side=-1) receives positive funding -> margin builds (inv_l + cum_funding)
+        eff_margin = inv_l - side * cum_funding
+        eff_margin = np.maximum(eff_margin, l + 1e-5)
+    else:
+        eff_margin = inv_l
+    return entry - side * entry * (eff_margin - l) / (1.0 - l * side)
 
 
 def build_positions(ohlcv: pd.DataFrame, oi_usd: float, cfg: ModelConfig) -> pd.DataFrame:
@@ -69,8 +83,8 @@ def build_positions(ohlcv: pd.DataFrame, oi_usd: float, cfg: ModelConfig) -> pd.
     safe = np.where(rng > 0, rng, 1.0)
     buy = np.where(rng > 0, (c - l) / safe, 0.5)
 
+    age_h = (df["timestamp"].iloc[-1] - df["timestamp"].to_numpy(float)) / 3_600_000.0
     if cfg.half_life_hours:
-        age_h = (df["timestamp"].iloc[-1] - df["timestamp"].to_numpy(float)) / 3_600_000.0
         usd = usd * 0.5 ** (age_h / cfg.half_life_hours)
 
     S = cfg.entry_samples
@@ -83,8 +97,9 @@ def build_positions(ohlcv: pd.DataFrame, oi_usd: float, cfg: ModelConfig) -> pd.
     cols = {k: [] for k in ("entry_idx", "side", "leverage", "entry_price", "liq_price", "liq_idx", "raw")}
     for i in range(n):
         entries = l[i] + frac * rng[i]                     # (S,)
+        cum_f = (cfg.funding_rate_hourly * age_h[i]) if (cfg.funding_drift and cfg.funding_rate_hourly != 0.0) else 0.0
         for side, share in ((1, buy[i]), (-1, 1.0 - buy[i])):
-            liq = liquidation_price(entries[None, :], tiers[:, None], side, cfg.max_leverage)  # (K,S)
+            liq = liquidation_price(entries[None, :], tiers[:, None], side, cfg.max_leverage, cum_funding=cum_f)  # (K,S)
             if i + 1 < n:
                 if side == 1:
                     fut = np.minimum.accumulate(l[i + 1:])

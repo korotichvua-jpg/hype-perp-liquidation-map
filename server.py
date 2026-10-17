@@ -369,6 +369,16 @@ def main() -> None:
     elif html_file.exists():
         shutil.copyfile(html_file, outdir / "index.html")
 
+    plotly_file = outdir / "plotly.min.js"
+    if not plotly_file.exists():
+        try:
+            import plotly
+            pkg_plotly = Path(plotly.__file__).parent / "package_data" / "plotly.min.js"
+            if pkg_plotly.exists():
+                shutil.copyfile(pkg_plotly, plotly_file)
+        except Exception:
+            pass
+
     handler = functools.partial(LiquidationMapRequestHandler, directory=str(outdir))
 
     # Try dual stack bind, fallback to 0.0.0.0 if :: fails

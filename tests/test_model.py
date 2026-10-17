@@ -58,3 +58,37 @@ def test_grid_profile_matches_survivors_in_range():
     inr = pos[pos.alive & (pos.liq_price >= e[0]) & (pos.liq_price < e[-1])]
     for side in ("long", "short"):
         assert abs(g[f"profile_{side}"].sum() - inr[inr.side == side].notional_usd.sum()) < 1.0
+
+
+def test_funding_drift_erodes_long_margin():
+    """Positive funding rate should erode long collateral, shifting liq price closer to entry."""
+    entry = 100.0
+    lev = 5.0
+    max_lev = 10.0
+    # Standard liq price without drift
+    liq_no_drift = liquidation_price(entry, lev, +1, max_lev, cum_funding=0.0)
+    # Long pays 1% cumulative funding -> margin drops -> liq price rises towards 100
+    liq_with_drift = liquidation_price(entry, lev, +1, max_lev, cum_funding=0.01)
+    assert liq_with_drift > liq_no_drift
+    assert liq_with_drift < entry
+
+    # Short receives 1% cumulative funding -> margin increases -> liq price rises away from entry
+    short_no_drift = liquidation_price(entry, lev, -1, max_lev, cum_funding=0.0)
+    short_with_drift = liquidation_price(entry, lev, -1, max_lev, cum_funding=0.01)
+    assert short_with_drift > short_no_drift
+
+
+def test_build_positions_with_funding_drift():
+    df = synthetic_ohlcv(100, seed=42)
+    cfg_base = ModelConfig(funding_drift=False)
+    cfg_drift = ModelConfig(funding_drift=True, funding_rate_hourly=0.0001)
+
+    pos_base = build_positions(df, OI, cfg_base)
+    pos_drift = build_positions(df, OI, cfg_drift)
+
+    assert len(pos_base) == len(pos_drift)
+    # Positions should have shifted liquidation prices for older candles
+    old_longs_base = pos_base[(pos_base["side"] == "long") & (pos_base["entry_idx"] < 50)]
+    old_longs_drift = pos_drift[(pos_drift["side"] == "long") & (pos_drift["entry_idx"] < 50)]
+    assert (old_longs_drift["liq_price"].to_numpy() >= old_longs_base["liq_price"].to_numpy()).all()
+
