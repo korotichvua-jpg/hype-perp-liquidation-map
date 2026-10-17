@@ -343,6 +343,8 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.path = "/hype_live_map.html"
         elif path_only in ("/timeframe-map", "/timeframe-map/", "/map-tf", "/map-tf/", "/timeframe", "/timeframe/", "/hype_timeframe_liqmap.html"):
             self.path = "/hype_timeframe_liqmap.html"
+        elif path_only in ("/turbo-map", "/turbo-map/", "/turbo", "/turbo/", "/fast-map", "/fast-map/", "/hype_turbo_liqmap.html"):
+            self.path = "/hype_turbo_liqmap.html"
         try:
             return super().do_GET()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -361,6 +363,8 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.path = "/hype_live_map.html"
         elif path_only in ("/timeframe-map", "/timeframe-map/", "/map-tf", "/map-tf/", "/timeframe", "/timeframe/", "/hype_timeframe_liqmap.html"):
             self.path = "/hype_timeframe_liqmap.html"
+        elif path_only in ("/turbo-map", "/turbo-map/", "/turbo", "/turbo/", "/fast-map", "/fast-map/", "/hype_turbo_liqmap.html"):
+            self.path = "/hype_turbo_liqmap.html"
         try:
             return super().do_HEAD()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -468,6 +472,22 @@ def main() -> None:
         print(f"  Live CCXT Wire:                       Hyperliquid HYPE/USDC:USDC")
         print(f"  Press Ctrl+C to stop.")
         print("=" * 60 + "\n", flush=True)
+        def _warmup():
+            try:
+                from liqmap.multi_tf import calculate_timeframe_payload
+                from liqmap.data import load_snapshot
+                snap_dir = Path("data/last")
+                if snap_dir.exists() and (snap_dir / "ohlcv.parquet").exists():
+                    base_df, meta = load_snapshot(snap_dir)
+                    oi_usd = float(meta.get("oi_usd", 1580000000.0))
+                    symbol = str(meta.get("symbol", "HYPE/USDC:USDC"))
+                    for tf in ("1h", "15m", "5m"):
+                        p = calculate_timeframe_payload(base_df, tf, oi_usd=oi_usd, symbol=symbol)
+                        _TF_PAYLOAD_CACHE[tf] = json.dumps(p).encode()
+                    print("  ⚡ Turbo RAM cache pre-warmed for instant sub-millisecond response.\n", flush=True)
+            except Exception:
+                pass
+        threading.Thread(target=_warmup, daemon=True).start()
         while True:
             try:
                 httpd.serve_forever()

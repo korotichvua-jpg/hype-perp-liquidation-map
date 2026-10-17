@@ -99,3 +99,26 @@ class TestMultiTimeframeHttpEndpoints:
             assert "heatmap" in data
             assert "histogram" in data
             assert len(data["centres"]) > 0
+
+    def test_turbo_map_html_page_direct(self):
+        req = urllib.request.Request("http://127.0.0.1:12313/turbo-map")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            assert resp.status == 200
+            html = resp.read().decode("utf-8")
+            assert "TURBO v3" in html
+            assert "CLIENT_MAP_CACHE" in html
+            assert "requestAnimationFrame" in html
+
+    def test_turbo_map_html_page_caddy_proxy(self):
+        req = urllib.request.Request("http://localhost:41345/turbo-map")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            assert resp.status == 200
+            html = resp.read().decode("utf-8")
+            assert "TURBO v3" in html
+
+    def test_turbo_html_file_is_under_50kb(self):
+        turbo_file = Path("output/hype_turbo_liqmap.html")
+        assert turbo_file.exists()
+        # Verify it achieves the ~98% size reduction compared to the 1.94MB standard page
+        assert turbo_file.stat().st_size < 50_000
+

@@ -120,6 +120,13 @@ def main(argv=None) -> Path:
         except Exception:
             pass
 
+    try:
+        from .turbo import generate_turbo_html
+        turbo_html = a.out / "hype_turbo_liqmap.html"
+        generate_turbo_html(turbo_html, symbol=symbol, ref_price=ref_price, oi_usd=oi)
+    except Exception as e:
+        print(f"Warning: could not generate turbo html: {e}", flush=True)
+
     print(f"ref price {ref_price:.4f} | OI/side ${oi/1e6:,.1f}M | positions modelled {len(pos):,} "
           f"| surviving {int(pos['alive'].sum()):,}")
     print(f"wrote {html}")

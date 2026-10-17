@@ -13,8 +13,9 @@ description: "Deterministic liquidation map, real-time WebSocket fire tape HUD, 
 # Deployment Memo: HYPE Perp Liquidation Map & Pro Terminal
 
 - **Target URL**: http://localhost:41345
+- **Turbo Ultra-Fast Liquidation Map (v3 High-Speed Shell)**: http://localhost:41345/turbo-map
+- **Multi-Timeframe Dynamic Map**: http://localhost:41345/timeframe-map
 - **Pro Terminal Dashboard**: http://localhost:41345/terminal
-- **Multi-Timeframe Dynamic Map (New Version)**: http://localhost:41345/timeframe-map
 - **Live V2 Liquidation Map**: http://localhost:41345/map-v2
 - **Live Map (Dedicated Live WS Page)**: http://localhost:41345/live-map
 - **Interactive 2D Liquidation Map (V1)**: http://localhost:41345/map
