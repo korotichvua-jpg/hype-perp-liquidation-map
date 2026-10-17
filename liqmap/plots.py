@@ -404,15 +404,30 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
 
       // Dynamic Plotly reference line update
       function updatePlotlySpot(newPrice) {{
-        const gd = document.getElementById('heatmapPlot') || document.querySelector('.plotly-graph-div');
-        if (gd && gd._fullLayout && gd._fullLayout.shapes) {{
+        const gd = document.getElementById('heatmapPlot');
+        if (gd && (gd.layout || gd._fullLayout)) {{
           try {{
-            Plotly.relayout(gd, {{
-              'shapes[0].y0': newPrice,
-              'shapes[0].y1': newPrice,
-              'annotations[0].y': newPrice,
-              'annotations[0].text': '$' + newPrice.toFixed(3)
-            }});
+            const layout = gd.layout || gd._fullLayout;
+            const updateObj = {{}};
+            if (layout.shapes && Array.isArray(layout.shapes)) {{
+              layout.shapes.forEach((s, idx) => {{
+                if (s.type === 'line' && (Math.abs(s.y0 - s.y1) < 0.001 || (s.line && s.line.color === '#facc15'))) {{
+                  updateObj['shapes[' + idx + '].y0'] = newPrice;
+                  updateObj['shapes[' + idx + '].y1'] = newPrice;
+                }}
+              }});
+            }}
+            if (layout.annotations && Array.isArray(layout.annotations)) {{
+              layout.annotations.forEach((a, idx) => {{
+                if (a.text && (a.text.startsWith('$') || !isNaN(parseFloat(a.text.replace('$', ''))))) {{
+                  updateObj['annotations[' + idx + '].y'] = newPrice;
+                  updateObj['annotations[' + idx + '].text'] = '$' + newPrice.toFixed(3);
+                }}
+              }});
+            }}
+            if (Object.keys(updateObj).length > 0) {{
+              Plotly.relayout(gd, updateObj);
+            }}
           }} catch(e) {{}}
         }}
       }}
@@ -857,6 +872,6 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
             "</head><body style='background:#080b11;margin:0;padding-bottom:3.5rem;'>" + header_html + "".join(parts) + footer_html + "</body></html>")
     path.write_text(html, encoding="utf-8")
     if path.name == "hype_liquidation_map.html":
-        v2_path = path.parent / "hype_liquidation_map_v2.html"
-        v2_path.write_text(html, encoding="utf-8")
+        for alt_name in ("hype_liquidation_map_v2.html", "hype_live_map.html"):
+            (path.parent / alt_name).write_text(html, encoding="utf-8")
 

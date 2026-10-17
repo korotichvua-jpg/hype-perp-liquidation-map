@@ -287,8 +287,10 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.path = "/terminal.html"
         elif self.path in ("/map", "/map/"):
             self.path = "/hype_liquidation_map.html"
-        elif self.path in ("/map-v2", "/map-v2/", "/map-live", "/map-live/"):
+        elif self.path in ("/map-v2", "/map-v2/"):
             self.path = "/hype_liquidation_map_v2.html"
+        elif self.path in ("/live-map", "/live-map/", "/map-live", "/map-live/"):
+            self.path = "/hype_live_map.html"
         try:
             return super().do_GET()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -299,8 +301,10 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.path = "/terminal.html"
         elif self.path in ("/map", "/map/"):
             self.path = "/hype_liquidation_map.html"
-        elif self.path in ("/map-v2", "/map-v2/", "/map-live", "/map-live/"):
+        elif self.path in ("/map-v2", "/map-v2/"):
             self.path = "/hype_liquidation_map_v2.html"
+        elif self.path in ("/live-map", "/live-map/", "/map-live", "/map-live/"):
+            self.path = "/hype_live_map.html"
         try:
             return super().do_HEAD()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):

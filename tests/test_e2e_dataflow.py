@@ -285,6 +285,7 @@ class TestPipeline6CaddyIngressAndProxy:
             ("/terminal", 200, "text/html"),
             ("/map", 200, "text/html"),
             ("/map-v2", 200, "text/html"),
+            ("/live-map", 200, "text/html"),
             ("/api/live", 200, "application/json"),
             ("/api/map-data", 200, "application/json"),
             ("/plotly.min.js", 200, "javascript"),

@@ -15,7 +15,8 @@ description: "Deterministic liquidation map, real-time WebSocket fire tape HUD, 
 - **Target URL**: http://localhost:41345
 - **Pro Terminal Dashboard**: http://localhost:41345/terminal
 - **Interactive 2D Liquidation Map (V1)**: http://localhost:41345/map
-- **Live V2 Liquidation Map (Direct DOM Ticker)**: http://localhost:41345/map-v2
+- **Live V2 Liquidation Map**: http://localhost:41345/map-v2
+- **Live Map (Dedicated New Version Page)**: http://localhost:41345/live-map
 - **Host Root**: `D:\projects\N1\output`
 - **Upstream Backend**: `http://127.0.0.1:12313`
 - **Pipeline Handlers**: `reverse_proxy`
