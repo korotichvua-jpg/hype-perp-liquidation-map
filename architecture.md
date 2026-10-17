@@ -172,6 +172,10 @@ flowchart TD
   Cumulative longs strictly increase as price falls below spot:
   $$C_{\text{long}}(P_a) \ge C_{\text{long}}(P_b) \quad \forall \; P_a \le P_b \quad (P \le P_{\text{ref}})$$
 
+- **End-to-End Pipeline Verification:**
+  Data pipeline contracts, exchange interfaces, and state lifecycles are formally enforced by 56 automated tests across 7 test suites, including dedicated end-to-end dataflow validation in [`tests/test_e2e_dataflow.py`](file:///D:/projects/N1/tests/test_e2e_dataflow.py) and browser testing in [`tests/test_e2e_playwright.py`](file:///D:/projects/N1/tests/test_e2e_playwright.py).
+
+
 ---
 
 ### 6. Deployment Topology & Networking

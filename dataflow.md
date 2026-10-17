@@ -238,3 +238,19 @@ sequenceDiagram
     Caddy-->>Client: Compressed HTTP 200 Response
 ```
 
+---
+
+### 9. End-to-End Pipeline Verification Matrix
+
+Each pipeline is formally verified by automated tests in [`tests/test_e2e_dataflow.py`](file:///D:/projects/N1/tests/test_e2e_dataflow.py):
+
+| Pipeline | Test Class & Method | Invariant Assertions |
+|:---|:---|:---|
+| **Pipeline 1** | `TestPipeline1HistoricalBatch.test_pipeline_1_deterministic_flow` | Bit-for-bit reproducibility, zero-lookahead survivor integrity, exact Open Interest conservation ($L_{\text{alive}} = \text{OI}$, $S_{\text{alive}} = \text{OI}$), cumulative monotonicity |
+| **Pipeline 2** | `TestPipeline2WebSocketTickProcessing.test_hyperliquid_live_wss_stream`<br>`TestPipeline2WebSocketTickProcessing.test_trade_classification_and_rolling_delta_logic` | Live `wss://api.hyperliquid.xyz/ws` connection, `allMids` & `trades` frames, rolling 60s delta accumulation, standard/whale/megalodon classification |
+| **Pipeline 3** | `TestPipeline3DepthAndAirPocket.test_live_depth_aggregation_and_air_pocket_contract` | Schema contract, $5\% \ge 2\%$ liquidity ordering, absorption ratio calculation, air pocket boolean flag consistency |
+| **Pipeline 4** | `TestPipeline4WaterfallShockSimulation.test_waterfall_simulator_e2e_dataflow` | Interactive slider shock interaction, rAF debouncer, wiped USD tally, depth canvas redraw, risk badge state transition |
+| **Pipeline 5** | `TestPipeline5ZeroReloadMapRecalculation.test_map_data_endpoint_contract`<br>`TestPipeline5ZeroReloadMapRecalculation.test_plotly_react_shock_tester_e2e` | `/api/map-data` schema validation, zero-reload `Plotly.react` WebGL canvas patch without document reload |
+| **Pipeline 6** | `TestPipeline6CaddyIngressAndProxy.test_caddy_reverse_proxy_endpoints`<br>`TestPipeline6CaddyIngressAndProxy.test_deployment_memo_manifest_integrity` | Edge port `:41345` reverse proxy to `:12312`, gzip compression header verification, [`memo.md`](file:///D:/projects/N1/memo.md) manifest schema integrity |
+
+
