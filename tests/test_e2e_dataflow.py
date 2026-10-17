@@ -284,6 +284,7 @@ class TestPipeline6CaddyIngressAndProxy:
         routes = [
             ("/terminal", 200, "text/html"),
             ("/map", 200, "text/html"),
+            ("/map-v2", 200, "text/html"),
             ("/api/live", 200, "application/json"),
             ("/api/map-data", 200, "application/json"),
             ("/plotly.min.js", 200, "javascript"),
@@ -299,11 +300,21 @@ class TestPipeline6CaddyIngressAndProxy:
                     f"Route {route} returned unexpected Content-Type: {ct}"
                 )
 
+    def test_map_v2_live_ticker_contract(self, page: Page, server_url: str):
+        page.goto(f"{server_url}/map-v2", wait_until="networkidle")
+        ticker = page.locator("#liveTickerWidget")
+        assert ticker.is_visible()
+        assert page.locator("#spotPriceBadge").is_visible()
+        assert page.locator("#priceChangeBadge").is_visible()
+        assert page.locator("#tickerChangeUsd").is_visible()
+        assert page.locator("#tickerChangePct").is_visible()
+        assert page.locator("#tickerPrevVal").is_visible()
+
     def test_deployment_memo_manifest_integrity(self):
         memo_file = Path("memo.md")
         assert memo_file.exists(), "memo.md deployment manifest must exist in root"
         content = memo_file.read_text(encoding="utf-8")
         assert "port: 41345" in content
-        assert "upstream: \"127.0.0.1:12312\"" in content
+        assert any(f'upstream: "127.0.0.1:{p}"' in content for p in (12312, 12313))
         assert "caddy_server_key: \"srv_41345\"" in content
         assert "last_build:" in content

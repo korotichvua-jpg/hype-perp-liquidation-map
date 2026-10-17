@@ -16,19 +16,10 @@ import pytest
 from playwright.sync_api import sync_playwright, Page, Browser, expect
 
 
-@pytest.fixture(scope="module")
-def browser_instance():
-    """Launch headless Chromium browser for the module."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        yield browser
-        browser.close()
-
-
 @pytest.fixture
-def page(browser_instance: Browser) -> Page:
+def page(browser: Browser) -> Page:
     """Create a fresh browser page with standard desktop viewport."""
-    context = browser_instance.new_context(viewport={"width": 1440, "height": 900})
+    context = browser.new_context(viewport={"width": 1440, "height": 900})
     pg = context.new_page()
     yield pg
     context.close()
@@ -268,9 +259,9 @@ class TestPlaywrightLiquidationMapE2E:
 class TestPlaywrightResponsiveMobileE2E:
     """End-to-end tests for mobile responsive layout."""
 
-    def test_mobile_viewport_rendering_and_layout(self, browser_instance: Browser, server_url: str):
+    def test_mobile_viewport_rendering_and_layout(self, browser: Browser, server_url: str):
         # Emulate iPhone 14 Pro
-        context = browser_instance.new_context(
+        context = browser.new_context(
             viewport={"width": 393, "height": 852},
             is_mobile=True,
             has_touch=True

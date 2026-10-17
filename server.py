@@ -88,6 +88,9 @@ class LiveStateEngine:
         funding = float(ctx.get("funding") or 0.0)
         oi_usd = float(ctx.get("openInterest") or 0.0) * spot
         vlm_24h = float(ctx.get("dayNtlVlm") or 0.0)
+        prev_day_px = float(ctx.get("prevDayPx") or spot)
+        change_24h_usd = spot - prev_day_px
+        change_24h_pct = ((spot - prev_day_px) / prev_day_px) * 100.0 if prev_day_px > 0 else 0.0
 
         # 2. Fetch l2Book
         req_book = urllib.request.Request(
@@ -137,6 +140,9 @@ class LiveStateEngine:
             self.state = {
                 "symbol": f"{self.coin}/USDC:USDC",
                 "spot": spot,
+                "prev_day_px": prev_day_px,
+                "change_24h_usd": change_24h_usd,
+                "change_24h_pct": change_24h_pct,
                 "oracle_px": oracle_px,
                 "funding": funding,
                 "oi_usd": oi_usd,
@@ -281,6 +287,8 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.path = "/terminal.html"
         elif self.path in ("/map", "/map/"):
             self.path = "/hype_liquidation_map.html"
+        elif self.path in ("/map-v2", "/map-v2/", "/map-live", "/map-live/"):
+            self.path = "/hype_liquidation_map_v2.html"
         try:
             return super().do_GET()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -291,6 +299,8 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.path = "/terminal.html"
         elif self.path in ("/map", "/map/"):
             self.path = "/hype_liquidation_map.html"
+        elif self.path in ("/map-v2", "/map-v2/", "/map-live", "/map-live/"):
+            self.path = "/hype_liquidation_map_v2.html"
         try:
             return super().do_HEAD()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):

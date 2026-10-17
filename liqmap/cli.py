@@ -48,14 +48,24 @@ def main(argv=None) -> Path:
         symbol = meta["symbol"]
         oi = a.oi_usd or meta["oi_usd"]
     else:
-        ex = make_exchange(a.exchange)
-        symbol = resolve_symbol(ex, a.symbol)
-        df = fetch_ohlcv_df(ex, symbol, a.timeframe, a.days)
-        ref = float(df["close"].iloc[-1])
-        oi = a.oi_usd or fetch_open_interest_usd(ex, symbol, ref)
-        save_snapshot(a.save_snapshot, df, {"symbol": symbol, "oi_usd": oi,
-                                            "timeframe": a.timeframe, "exchange": a.exchange})
-        print(f"snapshot saved -> {a.save_snapshot}  (re-run with --snapshot for identical output)")
+        try:
+            ex = make_exchange(a.exchange)
+            symbol = resolve_symbol(ex, a.symbol)
+            df = fetch_ohlcv_df(ex, symbol, a.timeframe, a.days)
+            ref = float(df["close"].iloc[-1])
+            oi = a.oi_usd or fetch_open_interest_usd(ex, symbol, ref)
+            save_snapshot(a.save_snapshot, df, {"symbol": symbol, "oi_usd": oi,
+                                                "timeframe": a.timeframe, "exchange": a.exchange})
+            print(f"snapshot saved -> {a.save_snapshot}  (re-run with --snapshot for identical output)")
+        except Exception as e:
+            fallback_dir = Path("data/last")
+            if fallback_dir.exists() and (fallback_dir / "meta.json").exists():
+                print(f"Live fetch unavailable ({e}); falling back to cached snapshot {fallback_dir}...", flush=True)
+                df, meta = load_snapshot(fallback_dir)
+                symbol = meta["symbol"]
+                oi = a.oi_usd or meta["oi_usd"]
+            else:
+                raise
 
     ref_price = float(df["close"].iloc[-1])
     pos = build_positions(df, oi, cfg)
@@ -104,6 +114,11 @@ def main(argv=None) -> Path:
         term_html = a.out / "terminal.html"
         generate_terminal_html(csv_file, meta_file, ref_price, term_html)
         print(f"wrote {term_html}")
+        try:
+            import shutil
+            shutil.copyfile(term_html, a.out / "index.html")
+        except Exception:
+            pass
 
     print(f"ref price {ref_price:.4f} | OI/side ${oi/1e6:,.1f}M | positions modelled {len(pos):,} "
           f"| surviving {int(pos['alive'].sum()):,}")

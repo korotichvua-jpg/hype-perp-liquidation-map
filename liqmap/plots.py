@@ -96,9 +96,23 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
           <span id="wsStatusText">LIVE WS CONNECTED</span>
         </span>
         <span style="font-size:1.15rem;font-weight:700;font-family:'JetBrains Mono',monospace;">{symbol}</span>
-        <span id="spotPriceBadge" style="font-size:1.05rem;color:#38bdf8;font-family:'JetBrains Mono',monospace;font-weight:700;background:rgba(56,189,248,0.1);padding:0.2rem 0.6rem;border-radius:6px;border:1px solid rgba(56,189,248,0.25);transition:background 0.3s, color 0.3s;">
-          ${init_price:,.3f}
-        </span>
+        <!-- Live Price Ticker & Actual 24h Change Widget -->
+        <div id="liveTickerWidget" style="display:inline-flex;align-items:center;gap:0.45rem;background:rgba(255,255,255,0.03);padding:0.2rem 0.55rem;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-family:'JetBrains Mono',monospace;">
+          <span id="spotPriceBadge" style="font-size:1.05rem;color:#38bdf8;font-weight:700;padding:0.15rem 0.4rem;border-radius:4px;transition:background 0.25s, color 0.25s;">
+            ${init_price:,.3f}
+          </span>
+          <span id="priceChangeBadge" style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.75rem;font-weight:700;padding:0.15rem 0.45rem;border-radius:5px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#10b981;transition:all 0.25s;">
+            <span id="tickerArrow">▲</span>
+            <span id="tickerChangeUsd">+$0.000</span>
+            <span id="tickerChangePct">(+0.00%)</span>
+          </span>
+          <span id="tickerPrevClose" style="font-size:0.7rem;color:#64748b;display:inline-flex;align-items:center;gap:0.2rem;" title="24h Previous Reference Price">
+            Prev: <b id="tickerPrevVal" style="color:#94a3b8;">${init_price:,.3f}</b>
+          </span>
+          <span id="tickerVolBox" style="font-size:0.7rem;color:#64748b;display:inline-flex;align-items:center;gap:0.2rem;" title="24h Volume">
+            Vol: <b id="vol24hVal" style="color:#38bdf8;">$128.8M</b>
+          </span>
+        </div>
         <span id="oiBadge" style="font-size:0.82rem;color:#94a3b8;font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,0.04);padding:0.2rem 0.5rem;border-radius:4px;">
           OI: ${init_oi/1e6:,.1f}M
         </span>
@@ -303,6 +317,8 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
 
     <script>
       let currentSpot = {init_price};
+      let prevDayPx = null;
+      let lastPrice = {init_price};
       let audioEnabled = true;
       let audioCtx = null;
       let currentTapeFilter = 'all';
@@ -403,21 +419,48 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
 
       function updatePriceDisplay(newPrice) {{
         const badge = document.getElementById('spotPriceBadge');
+        const changeBadge = document.getElementById('priceChangeBadge');
+        const arrow = document.getElementById('tickerArrow');
+        const changeUsd = document.getElementById('tickerChangeUsd');
+        const changePct = document.getElementById('tickerChangePct');
+        const prevVal = document.getElementById('tickerPrevVal');
+
         if (!badge) return;
-        const diff = newPrice - currentSpot;
-        if (Math.abs(diff) > 0.0001) {{
-          badge.textContent = '$' + newPrice.toFixed(3) + (diff > 0 ? ' ▲' : ' ▼');
-          badge.style.background = diff > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
-          badge.style.color = diff > 0 ? '#10b981' : '#ef4444';
-          badge.style.borderColor = diff > 0 ? '#10b981' : '#ef4444';
-          setTimeout(() => {{
-            badge.style.background = 'rgba(56,189,248,0.1)';
-            badge.style.color = '#38bdf8';
-            badge.style.borderColor = 'rgba(56,189,248,0.25)';
-          }}, 600);
-          updatePlotlySpot(newPrice);
-        }}
+        const tickDiff = newPrice - (lastPrice || currentSpot);
+        lastPrice = newPrice;
         currentSpot = newPrice;
+
+        if (Math.abs(tickDiff) > 0.0001) {{
+          badge.textContent = '$' + newPrice.toFixed(3);
+          badge.style.background = tickDiff > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
+          badge.style.color = tickDiff > 0 ? '#10b981' : '#ef4444';
+          badge.style.borderColor = tickDiff > 0 ? '#10b981' : '#ef4444';
+          setTimeout(() => {{
+            badge.style.background = 'transparent';
+            badge.style.color = '#38bdf8';
+            badge.style.borderColor = 'transparent';
+          }}, 350);
+          updatePlotlySpot(newPrice);
+        }} else {{
+          badge.textContent = '$' + newPrice.toFixed(3);
+        }}
+
+        // Direct DOM update for 24h Price Change Ticker
+        const refBase = prevDayPx || {init_price};
+        if (refBase && changeBadge && changeUsd && changePct) {{
+          const deltaUsd = newPrice - refBase;
+          const deltaPct = (deltaUsd / refBase) * 100.0;
+          const isUp = deltaUsd >= 0;
+
+          changeBadge.style.background = isUp ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+          changeBadge.style.borderColor = isUp ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)';
+          changeBadge.style.color = isUp ? '#10b981' : '#ef4444';
+
+          if (arrow) arrow.textContent = isUp ? '▲' : '▼';
+          changeUsd.textContent = (isUp ? '+' : '') + '$' + deltaUsd.toFixed(3);
+          changePct.textContent = '(' + (isUp ? '+' : '') + deltaPct.toFixed(2) + '%)';
+          if (prevVal) prevVal.textContent = '$' + refBase.toFixed(3);
+        }}
       }}
 
       function updateDeltaBar(trade) {{
@@ -552,8 +595,9 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
               badge.style.color = '#10b981';
               text.textContent = 'LIVE WS CONNECTED';
             }}
-            // Subscribe to trades, l2Book, and allMids
+            // Subscribe to trades, activeAssetCtx, l2Book, and allMids
             ws.send(JSON.stringify({{method: "subscribe", subscription: {{type: "trades", coin: "HYPE"}}}}));
+            ws.send(JSON.stringify({{method: "subscribe", subscription: {{type: "activeAssetCtx", coin: "HYPE"}}}}));
             ws.send(JSON.stringify({{method: "subscribe", subscription: {{type: "l2Book", coin: "HYPE"}}}}));
             ws.send(JSON.stringify({{method: "subscribe", subscription: {{type: "allMids"}}}}));
           }};
@@ -569,6 +613,18 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
                     addTradeToTape(t);
                   }}
                 }});
+              }} else if (msg.channel === 'activeAssetCtx' && msg.data) {{
+                const assetData = (msg.data.coin === 'HYPE') ? msg.data.ctx : (msg.data.ctx || msg.data);
+                if (assetData) {{
+                  if (assetData.prevDayPx) {{
+                    prevDayPx = parseFloat(assetData.prevDayPx);
+                  }}
+                  const px = parseFloat(assetData.midPx || assetData.markPx || assetData.oraclePx || 0);
+                  if (px > 0) updatePriceDisplay(px);
+                  if (assetData.dayNtlVlm && document.getElementById('vol24hVal')) {{
+                    document.getElementById('vol24hVal').textContent = '$' + (parseFloat(assetData.dayNtlVlm) / 1e6).toFixed(1) + 'M';
+                  }}
+                }}
               }} else if (msg.channel === 'allMids' && msg.data && msg.data.mids) {{
                 if (msg.data.mids.HYPE) {{
                   updatePriceDisplay(parseFloat(msg.data.mids.HYPE));
@@ -617,7 +673,13 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
           const res = await fetch('/api/live');
           if (res.ok) {{
             const data = await res.json();
+            if (data.prev_day_px) {{
+              prevDayPx = parseFloat(data.prev_day_px);
+            }}
             if (data.spot) updatePriceDisplay(data.spot);
+            if (data.vlm_24h && document.getElementById('vol24hVal')) {{
+              document.getElementById('vol24hVal').textContent = '$' + (data.vlm_24h / 1e6).toFixed(1) + 'M';
+            }}
             if (data.bids_2pct && document.getElementById('statBids')) {{
               document.getElementById('statBids').textContent = '$' + (data.bids_2pct / 1e6).toFixed(2) + 'M';
             }}
@@ -794,4 +856,7 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
             "<script src='/plotly.min.js' onerror=\"this.onerror=null;this.src='https://cdn.plot.ly/plotly-2.35.2.min.js'\"></script>"
             "</head><body style='background:#080b11;margin:0;padding-bottom:3.5rem;'>" + header_html + "".join(parts) + footer_html + "</body></html>")
     path.write_text(html, encoding="utf-8")
+    if path.name == "hype_liquidation_map.html":
+        v2_path = path.parent / "hype_liquidation_map_v2.html"
+        v2_path.write_text(html, encoding="utf-8")
 
