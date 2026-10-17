@@ -80,7 +80,9 @@ def histogram2d_figure(pos: pd.DataFrame, grids, symbol, n_time_bins: int = 60) 
 
 def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
                oi_usd: float | None = None, ref_price: float | None = None) -> None:
-    parts = [f.to_html(full_html=False, include_plotlyjs=(True if i == 0 else False))
+    div_ids = ["heatmapPlot", "histogramPlot"]
+    parts = [f.to_html(full_html=False, div_id=(div_ids[i] if i < len(div_ids) else None),
+                       include_plotlyjs=(True if i == 0 else False))
              for i, f in enumerate(figs)]
     init_price = ref_price or 79.30
     init_oi = oi_usd or 1.58e9
@@ -109,6 +111,16 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
           <span>Bids(2%): <b id="statBids" style="color:#10b981;">$1.2M</b></span>
           <span style="color:rgba(255,255,255,0.2);">|</span>
           <span>Asks(2%): <b id="statAsks" style="color:#ef4444;">$1.1M</b></span>
+        </div>
+        <!-- Interactive Shock Cascade Tester -->
+        <div style="display:inline-flex;align-items:center;gap:0.25rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);padding:0.2rem 0.45rem;border-radius:6px;font-size:0.72rem;">
+          <span style="color:#94a3b8;font-size:0.65rem;font-weight:700;">SHOCK:</span>
+          <button onclick="applyMapShock(-0.15)" class="shock-btn">-15%</button>
+          <button onclick="applyMapShock(-0.08)" class="shock-btn">-8%</button>
+          <button onclick="applyMapShock(0)" class="shock-btn" style="color:#38bdf8;font-weight:700;">Spot</button>
+          <button onclick="applyMapShock(0.08)" class="shock-btn">+8%</button>
+          <button onclick="applyMapShock(0.15)" class="shock-btn">+15%</button>
+          <span id="mapShockBadge" style="color:#f59e0b;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:0.68rem;margin-left:0.2rem;">$0.0M Wiped</span>
         </div>
         <button id="audioToggleBtn" onclick="toggleAudio()" style="padding:0.45rem 0.75rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:0.8rem;font-weight:600;border-radius:8px;cursor:pointer;transition:all 0.2s;">
           🔊 Audio: ON
@@ -239,6 +251,22 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
         background: rgba(56,189,248,0.15);
         font-weight: 700;
       }}
+      .shock-btn {{
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #94a3b8;
+        border-radius: 4px;
+        padding: 0.15rem 0.4rem;
+        font-size: 0.68rem;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }}
+      .shock-btn:hover {{
+        background: rgba(56,189,248,0.18);
+        color: #38bdf8;
+        border-color: rgba(56,189,248,0.4);
+      }}
       .card-standard {{
         display: inline-flex;
         align-items: center;
@@ -360,7 +388,7 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
 
       // Dynamic Plotly reference line update
       function updatePlotlySpot(newPrice) {{
-        const gd = document.querySelector('.plotly-graph-div');
+        const gd = document.getElementById('heatmapPlot') || document.querySelector('.plotly-graph-div');
         if (gd && gd._fullLayout && gd._fullLayout.shapes) {{
           try {{
             Plotly.relayout(gd, {{
@@ -629,19 +657,99 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
         if (text) text.textContent = 'POLLING /api/live';
       }}
 
+      let MAP_PAYLOAD = null;
+      async function loadInitialMapPayload() {{
+        try {{
+          const r = await fetch('/api/map-data');
+          if (r.ok) MAP_PAYLOAD = await r.json();
+        }} catch(e) {{}}
+      }}
+
+      function applyMapShock(pct) {{
+        if (!MAP_PAYLOAD || !MAP_PAYLOAD.centres) return;
+        const targetPrice = currentSpot * (1 + pct);
+        updatePlotlySpot(targetPrice);
+
+        const badge = document.getElementById('mapShockBadge');
+        if (!badge) return;
+
+        if (pct === 0) {{
+          badge.textContent = '$0.0M Wiped';
+          badge.style.color = '#94a3b8';
+          return;
+        }}
+
+        const centres = MAP_PAYLOAD.centres;
+        let wiped = 0;
+        if (pct < 0) {{
+          const cumLong = MAP_PAYLOAD.cum_long;
+          let idx = 0, minDiff = Infinity;
+          for (let i = 0; i < centres.length; i++) {{
+            const d = Math.abs(centres[i] - targetPrice);
+            if (d < minDiff) {{ minDiff = d; idx = i; }}
+          }}
+          wiped = cumLong[idx] || 0;
+          badge.textContent = `-$${{(wiped / 1e6).toFixed(1)}}M Longs`;
+          badge.style.color = '#ef4444';
+        }} else {{
+          const cumShort = MAP_PAYLOAD.cum_short;
+          let idx = centres.length - 1, minDiff = Infinity;
+          for (let i = 0; i < centres.length; i++) {{
+            const d = Math.abs(centres[i] - targetPrice);
+            if (d < minDiff) {{ minDiff = d; idx = i; }}
+          }}
+          wiped = cumShort[idx] || 0;
+          badge.textContent = `+$${{(wiped / 1e6).toFixed(1)}}M Shorts`;
+          badge.style.color = '#10b981';
+        }}
+      }}
+
       async function refreshLive() {{
         const btn = document.getElementById('refreshBtn');
         const icon = document.getElementById('btnIcon');
         const text = document.getElementById('btnText');
         btn.disabled = true;
-        btn.style.opacity = '0.6';
+        btn.style.opacity = '0.7';
         icon.textContent = '⏳';
         text.textContent = 'Syncing...';
+        const t0 = performance.now();
         try {{
           const res = await fetch('/api/refresh', {{ method: 'POST' }});
           if (res.ok) {{
-            text.textContent = 'Success! Reloading...';
-            setTimeout(() => window.location.reload(), 800);
+            text.textContent = 'Updating Map...';
+            const mapRes = await fetch('/api/map-data');
+            if (mapRes.ok) {{
+              const fresh = await mapRes.json();
+              MAP_PAYLOAD = fresh;
+              const hPlot = document.getElementById('heatmapPlot');
+              const sPlot = document.getElementById('histogramPlot');
+              if (window.Plotly && hPlot && fresh.heatmap) {{
+                await Plotly.react(hPlot, fresh.heatmap.data, fresh.heatmap.layout);
+              }}
+              if (window.Plotly && sPlot && fresh.histogram) {{
+                await Plotly.react(sPlot, fresh.histogram.data, fresh.histogram.layout);
+              }}
+              if (fresh.spot) updatePriceDisplay(fresh.spot);
+              if (fresh.oi_usd && document.getElementById('oiBadge')) {{
+                document.getElementById('oiBadge').textContent = 'OI: $' + (fresh.oi_usd / 1e6).toFixed(1) + 'M';
+              }}
+              const dt = ((performance.now() - t0) / 1000).toFixed(2);
+              text.textContent = `Synced (${{dt}}s)`;
+              icon.textContent = '⚡';
+              btn.style.borderColor = '#10b981';
+              btn.style.color = '#10b981';
+              setTimeout(() => {{
+                text.textContent = 'CCXT Sync';
+                icon.textContent = '🔄';
+                btn.style.borderColor = 'rgba(56,189,248,0.35)';
+                btn.style.color = '#38bdf8';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+              }}, 2500);
+            }} else {{
+              text.textContent = 'Reloading...';
+              setTimeout(() => window.location.reload(), 500);
+            }}
           }} else {{
             text.textContent = 'Failed';
             btn.disabled = false;
@@ -658,6 +766,7 @@ def write_html(path, figs: list[go.Figure], symbol: str = "HYPE/USDC:USDC",
       connectHyperliquidWS();
       setInterval(pollLiveAPI, 2500);
       pollLiveAPI();
+      loadInitialMapPayload();
     </script>
     """
     footer_html = r"""

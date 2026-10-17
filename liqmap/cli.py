@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -62,9 +63,23 @@ def main(argv=None) -> Path:
 
     a.out.mkdir(parents=True, exist_ok=True)
     html = a.out / "hype_liquidation_map.html"
-    write_html(html, [heatmap_figure(df, grids, ref_price, symbol, oi),
-                      histogram2d_figure(pos, grids, symbol)],
-               symbol=symbol, oi_usd=oi, ref_price=ref_price)
+    fig_heat = heatmap_figure(df, grids, ref_price, symbol, oi)
+    fig_hist = histogram2d_figure(pos, grids, symbol)
+    write_html(html, [fig_heat, fig_hist], symbol=symbol, oi_usd=oi, ref_price=ref_price)
+
+    map_data_file = a.out / "map_data.json"
+    map_payload = {
+        "heatmap": json.loads(fig_heat.to_json()),
+        "histogram": json.loads(fig_hist.to_json()),
+        "spot": ref_price,
+        "oi_usd": oi,
+        "symbol": symbol,
+        "centres": grids["centres"].tolist(),
+        "cum_long": grids["cum_long"].tolist(),
+        "cum_short": grids["cum_short"].tolist(),
+    }
+    map_data_file.write_text(json.dumps(map_payload), encoding="utf-8")
+
     csv_file = a.out / "liquidation_profile.csv"
     pd.DataFrame({"price": grids["centres"], "long_usd": grids["profile_long"],
                   "short_usd": grids["profile_short"], "cum_long": grids["cum_long"],

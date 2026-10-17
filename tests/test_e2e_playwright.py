@@ -222,6 +222,48 @@ class TestPlaywrightLiquidationMapE2E:
         assert "192.168.1.12" in footer_text
         assert "83.5.208.192" in footer_text
 
+    def test_liquidation_map_shock_cascade_interaction(self, page: Page, server_url: str):
+        page.goto(f"{server_url}/map", wait_until="networkidle")
+        page.wait_for_timeout(500)
+
+        badge = page.locator("#mapShockBadge")
+        assert badge.is_visible()
+
+        # Click -15% Shock
+        page.locator(".shock-btn").nth(0).click()
+        page.wait_for_timeout(300)
+        expect(badge).to_contain_text("Longs")
+
+        # Click +15% Shock
+        page.locator(".shock-btn").nth(4).click()
+        page.wait_for_timeout(300)
+        expect(badge).to_contain_text("Shorts")
+
+        # Click Spot
+        page.locator(".shock-btn").nth(2).click()
+        page.wait_for_timeout(300)
+        expect(badge).to_contain_text("$0.0M Wiped")
+
+    def test_liquidation_map_zero_reload_sync(self, page: Page, server_url: str):
+        page.goto(f"{server_url}/map", wait_until="networkidle")
+        page.wait_for_timeout(500)
+
+        # Track navigation events to guarantee zero full-page reloads
+        reloaded = False
+        def on_nav(frame):
+            nonlocal reloaded
+            if frame == page.main_frame:
+                reloaded = True
+        page.on("framenavigated", on_nav)
+
+        btn = page.locator("#refreshBtn")
+        assert btn.is_visible()
+        btn.click()
+
+        # Wait for zero-reload sync confirmation text
+        expect(btn).to_contain_text("Synced", timeout=30000)
+        assert not reloaded, "CCXT sync must update via Plotly.react with zero page reloads"
+
 
 class TestPlaywrightResponsiveMobileE2E:
     """End-to-end tests for mobile responsive layout."""

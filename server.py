@@ -176,7 +176,11 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.path in ("/api/refresh", "/api/refresh/"):
             try:
                 print("Fetching latest live CCXT Hyperliquid HYPE perp data...", flush=True)
-                run_pipeline()
+                try:
+                    run_pipeline([])
+                except Exception as net_err:
+                    print(f"Direct CCXT fetch error ({net_err}); recalculating from data/last...", flush=True)
+                    run_pipeline(["--snapshot", "data/last"])
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
@@ -195,7 +199,11 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.path in ("/refresh", "/refresh/"):
             print("Triggering manual refresh from live CCXT HYPE perps...", flush=True)
             try:
-                run_pipeline()
+                try:
+                    run_pipeline([])
+                except Exception as net_err:
+                    print(f"Direct CCXT fetch error ({net_err}); recalculating from data/last...", flush=True)
+                    run_pipeline(["--snapshot", "data/last"])
             except Exception as e:
                 print(f"Error refreshing CCXT data: {e}", flush=True)
             self.send_response(302)
@@ -211,6 +219,26 @@ class LiquidationMapRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             data = LIVE_ENGINE.get_state() if LIVE_ENGINE else {}
             self.wfile.write(json.dumps(data).encode())
+            return
+
+        if self.path in ("/api/map-data", "/api/map-data/"):
+            out_dir = Path(getattr(self, "directory", "output"))
+            map_file = out_dir / "map_data.json"
+            if not map_file.exists():
+                map_file = Path("output/map_data.json")
+            if map_file.exists():
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.end_headers()
+                self.wfile.write(map_file.read_bytes())
+            else:
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(b'{"error": "map_data.json not found"}')
             return
 
         if self.path in ("/api/stream", "/api/stream/"):
